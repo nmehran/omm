@@ -1,0 +1,77 @@
+# Python-related
+.miniconda3
+.venv
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDEs and editors
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Build directories
+.build
+build
+cmake-build-*
+
+# Compiled files
+*.so
+*.o
+*.a
+*.lib
+*.dll
+*.dylib
+*.exe
+
+# Cython generated files
+cython
+*.c
+
+# Logs and databases
+Logs
+logs
+*.log
+*.sqlite
+
+# OS generated files
+.DS_Store
+.DS_Store*
+Thumbs.db
+
+# Packaging
+*.egg
+*.egg-info
+dist
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+
+# Data files
+*.parquet
+*.pdf
+*.zpk
+*.pickle
+*.html
+
+# Temporary files
+*.~lock*
+
+# Other
+miniconda.sh
+.git
