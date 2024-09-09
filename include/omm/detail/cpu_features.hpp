@@ -38,7 +38,13 @@ enum CACHE_SIZES {
     NUM_CACHE_SIZES
 };
 
-// Global variables for cache sizes
+// Default fallback values for cache sizes
+constexpr std::uint32_t DEFAULT_L1_CACHE_SIZE = 32 * 1024;
+constexpr std::uint32_t DEFAULT_L2_CACHE_SIZE = 256 * 1024;
+constexpr std::uint32_t DEFAULT_L3_CACHE_SIZE = 8 * 1024 * 1024;
+constexpr std::uint32_t DEFAULT_CACHE_LINE_SIZE = 64;
+
+// Global array for storing detected cache sizes
 inline std::array<std::uint32_t, NUM_CACHE_SIZES> G_CACHE_SIZES = {0};
 
 // Convenience macros for accessing cache sizes
@@ -71,24 +77,32 @@ std::vector<CacheInfo> detect_cache_sizes() {
 
     std::cout << "Max CPUID leaf: " << max_leaf << std::endl;
 
-    // Try CPUID leaf 0x80000006 for L1 and L2 cache info
+    // Detect cache sizes using CPUID
     #if defined(_MSC_VER)
     __cpuid(cpu_info, 0x80000005);
-    std::uint32_t l1d_size = (cpu_info[2] >> 24) * 1024;  // L1 data cache size in bytes
-    std::uint32_t l1i_size = (cpu_info[3] >> 24) * 1024;  // L1 instruction cache size in bytes
+    std::uint32_t l1d_size = (cpu_info[2] >> 24) * 1024;
+    std::uint32_t l1i_size = (cpu_info[3] >> 24) * 1024;
 
     __cpuid(cpu_info, 0x80000006);
-    std::uint32_t l2_size = (cpu_info[2] >> 16) * 1024;   // L2 cache size in bytes
-    std::uint32_t l3_size = ((cpu_info[3] >> 18) & 0x3FFF) * 512 * 1024;  // L3 cache size in bytes
+    std::uint32_t l2_size = (cpu_info[2] >> 16) * 1024;
+    std::uint32_t l3_size = ((cpu_info[3] >> 18) & 0x3FFF) * 512 * 1024;
     #elif defined(__GNUC__) || defined(__clang__)
     __get_cpuid(0x80000005, &eax, &ebx, &ecx, &edx);
-    std::uint32_t l1d_size = (ecx >> 24) * 1024;  // L1 data cache size in bytes
-    std::uint32_t l1i_size = (edx >> 24) * 1024;  // L1 instruction cache size in bytes
+    std::uint32_t l1d_size = (ecx >> 24) * 1024;
+    std::uint32_t l1i_size = (edx >> 24) * 1024;
 
     __get_cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
-    std::uint32_t l2_size = (ecx >> 16) * 1024;   // L2 cache size in bytes
-    std::uint32_t l3_size = ((edx >> 18) & 0x3FFF) * 512 * 1024;  // L3 cache size in bytes
+    std::uint32_t l2_size = (ecx >> 16) * 1024;
+    std::uint32_t l3_size = ((edx >> 18) & 0x3FFF) * 512 * 1024;
     #endif
+
+    // Use fallback values if detection fails
+    l1d_size = (l1d_size > 0) ? l1d_size : DEFAULT_L1_CACHE_SIZE;
+    l2_size = (l2_size > 0) ? l2_size : DEFAULT_L2_CACHE_SIZE;
+    l3_size = (l3_size > 0) ? l3_size : DEFAULT_L3_CACHE_SIZE;
+
+    // Adjust L3 cache size (divide by 2 as it's reported as total across all cores)
+    l3_size /= 2;
 
     std::cout << "Detected cache sizes: "
               << "L1D: " << l1d_size
@@ -96,23 +110,24 @@ std::vector<CacheInfo> detect_cache_sizes() {
               << ", L2: " << l2_size
               << ", L3: " << l3_size << " bytes" << std::endl;
 
-    if (l1d_size > 0) cache_info.push_back({l1d_size, 64, 0, 1});  // Assume 64-byte line size for L1D
-    if (l1i_size > 0) cache_info.push_back({l1i_size, 64, 0, 2});  // Assume 64-byte line size for L1I
-    if (l2_size > 0) cache_info.push_back({l2_size, 64, 0, 3});    // Assume 64-byte line size for L2
-    if (l3_size > 0) cache_info.push_back({l3_size, 64, 0, 3});    // Assume 64-byte line size for L3
+    cache_info.push_back({l1d_size, DEFAULT_CACHE_LINE_SIZE, 0, 1});
+    cache_info.push_back({l1i_size, DEFAULT_CACHE_LINE_SIZE, 0, 2});
+    cache_info.push_back({l2_size, DEFAULT_CACHE_LINE_SIZE, 0, 3});
+    cache_info.push_back({l3_size, DEFAULT_CACHE_LINE_SIZE, 0, 3});
 
     return cache_info;
 }
 
+/**
+ * @brief Initializes the global cache size variables.
+ */
 inline void initialize_cache_sizes() {
     auto cache_info = detect_cache_sizes();
     for (const auto& cache : cache_info) {
         switch (cache.type) {
             case 1: // Data cache
-                if (G_L1_CACHE_SIZE == 0) {
-                    G_L1_CACHE_SIZE = cache.size;
-                    G_CACHE_LINE_SIZE = cache.line_size;
-                }
+                G_L1_CACHE_SIZE = cache.size;
+                G_CACHE_LINE_SIZE = cache.line_size;
                 break;
             case 2: // Instruction cache
                 // We don't store instruction cache size separately
@@ -127,6 +142,12 @@ inline void initialize_cache_sizes() {
         }
     }
 
+    // Ensure we have values for all cache levels
+    G_L1_CACHE_SIZE = G_L1_CACHE_SIZE > 0 ? G_L1_CACHE_SIZE : DEFAULT_L1_CACHE_SIZE;
+    G_L2_CACHE_SIZE = G_L2_CACHE_SIZE > 0 ? G_L2_CACHE_SIZE : DEFAULT_L2_CACHE_SIZE;
+    G_L3_CACHE_SIZE = G_L3_CACHE_SIZE > 0 ? G_L3_CACHE_SIZE : DEFAULT_L3_CACHE_SIZE;
+    G_CACHE_LINE_SIZE = G_CACHE_LINE_SIZE > 0 ? G_CACHE_LINE_SIZE : DEFAULT_CACHE_LINE_SIZE;
+
     std::cout << "Initialized cache sizes: "
               << "L1: " << G_L1_CACHE_SIZE
               << ", L2: " << G_L2_CACHE_SIZE
@@ -137,14 +158,14 @@ inline void initialize_cache_sizes() {
 /**
  * @brief Struct to ensure cache sizes are initialized.
  */
-    struct CacheSizeInitializer {
-        CacheSizeInitializer() {
-            initialize_cache_sizes();
-        }
-    };
+struct CacheSizeInitializer {
+    CacheSizeInitializer() {
+        initialize_cache_sizes();
+    }
+};
 
 // Global instance to ensure initialization
-    inline CacheSizeInitializer g_cache_size_initializer;
+inline CacheSizeInitializer g_cache_size_initializer;
 
 /**
  * @brief Checks if the CPU supports AVX-512F instructions.
@@ -195,8 +216,6 @@ struct CPUInfo {
  */
 CPUInfo get_cpu_info();
 
-
 } // namespace omm::detail
-
 
 #endif // OMM_CPU_FEATURES_HPP
