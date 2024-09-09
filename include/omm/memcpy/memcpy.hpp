@@ -62,7 +62,9 @@ namespace omm {
         struct Initializer {
             Initializer();
         };
+
         extern Initializer initializer;
+
     } // namespace detail
 
 // Public API

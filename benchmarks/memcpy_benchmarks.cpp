@@ -6,7 +6,7 @@
 
 constexpr size_t MIN_ALLOCATION = 1024 * 1024;  // 1 MB
 constexpr size_t MAX_ALLOCATION = 1024 * 1024 * 1024;  // 1 GB
-constexpr int REPETITIONS = 10;
+constexpr int REPETITIONS = 2;
 
 static void BM_StandardMemcpy(benchmark::State& state) {
     omm::benchmark::PinToCore(-1);  // Adjust core number as needed
@@ -49,12 +49,13 @@ static void BM_AVX2_Memcpy(benchmark::State& state) {
 #define CONFIGURE_BENCHMARK(benchmark_func) \
     BENCHMARK(benchmark_func) \
         ->RangeMultiplier(2)->Range(MIN_ALLOCATION, MAX_ALLOCATION) \
-        ->Repetitions(REPETITIONS)          \
-        ->MinTime(1.0)                      \
+        ->Repetitions(REPETITIONS) \
+        ->MinTime(1.0) \
         ->Unit(benchmark::kMillisecond) \
-        ->ReportAggregatesOnly(true)
+        ->ReportAggregatesOnly(true) \
+        ->Name(omm::benchmark::GetColoredBenchmarkName(#benchmark_func))
 
-CONFIGURE_BENCHMARK(BM_StandardMemcpy);
+//CONFIGURE_BENCHMARK(BM_StandardMemcpy);
 CONFIGURE_BENCHMARK(BM_AVX2_Memcpy);
 
 int main(int argc, char** argv) {
