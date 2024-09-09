@@ -64,62 +64,62 @@ namespace omm {
 
 // Memcpy implementation functions
         inline void memcpy_avx512(void* dst, const void* src, std::size_t size) {
-            char* d = reinterpret_cast<char*>(dst);
-            const char* s = reinterpret_cast<const char*>(src);
-
-            // For small sizes, use pointer instructions
-            if (size <= 64) {
-                for (size_t i = 0; i < size; ++i) {
-                    *d++ = *s++;
-                }
-                return;
-            }
-
-            // Handle initial unaligned bytes
-            size_t initial_bytes = (64 - (reinterpret_cast<uintptr_t>(d) & 63)) & 63;
-            for (size_t i = 0; i < initial_bytes; ++i) {
-                *d++ = *s++;
-            }
-            size -= initial_bytes;
-
-            constexpr size_t BLOCK_SIZE = 512;
-            constexpr size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
-            constexpr size_t CACHE_LINE_SIZE = 64;
-
-            size_t vec_size = size & ~(BLOCK_SIZE - 1);
-            const char* s_end = s + vec_size;
-
-            // Set up 512-bit aligned pointers for the main loop
-            const __m512i* s512 = reinterpret_cast<const __m512i*>(s);
-            __m512i* d512 = reinterpret_cast<__m512i*>(d);
-
-            while (s < s_end) {
-                // Prefetch
-                _mm_prefetch(s, _MM_HINT_T0);
-                for (size_t i = 0; i < PREFETCH_DISTANCE; i += CACHE_LINE_SIZE) {
-                    _mm_prefetch(s + i, _MM_HINT_NTA);
-                }
-
-                // Copy BLOCK_SIZE bytes
-                for (size_t i = 0; i < BLOCK_SIZE; i += 64) {
-                    __m512i v = _mm512_loadu_si512(s512);
-                    _mm512_stream_si512(d512, v);
-                    ++s512;
-                    ++d512;
-                }
-
-                s += BLOCK_SIZE;
-                d += BLOCK_SIZE;
-            }
-
-            // Handle remaining bytes with pointer instructions
-            size_t remaining = size - vec_size;
-            for (size_t i = 0; i < remaining; ++i) {
-                *d++ = *s++;
-            }
-
-            // Ensure all non-temporal stores are visible
-            _mm_sfence();
+//            char* d = reinterpret_cast<char*>(dst);
+//            const char* s = reinterpret_cast<const char*>(src);
+//
+//            // For small sizes, use pointer instructions
+//            if (size <= 64) {
+//                for (size_t i = 0; i < size; ++i) {
+//                    *d++ = *s++;
+//                }
+//                return;
+//            }
+//
+//            // Handle initial unaligned bytes
+//            size_t initial_bytes = (64 - (reinterpret_cast<uintptr_t>(d) & 63)) & 63;
+//            for (size_t i = 0; i < initial_bytes; ++i) {
+//                *d++ = *s++;
+//            }
+//            size -= initial_bytes;
+//
+//            constexpr size_t BLOCK_SIZE = 512;
+//            constexpr size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
+//            constexpr size_t CACHE_LINE_SIZE = 64;
+//
+//            size_t vec_size = size & ~(BLOCK_SIZE - 1);
+//            const char* s_end = s + vec_size;
+//
+//            // Set up 512-bit aligned pointers for the main loop
+//            const __m512i* s512 = reinterpret_cast<const __m512i*>(s);
+//            __m512i* d512 = reinterpret_cast<__m512i*>(d);
+//
+//            while (s < s_end) {
+//                // Prefetch
+//                _mm_prefetch(s, _MM_HINT_T0);
+//                for (size_t i = 0; i < PREFETCH_DISTANCE; i += CACHE_LINE_SIZE) {
+//                    _mm_prefetch(s + i, _MM_HINT_NTA);
+//                }
+//
+//                // Copy BLOCK_SIZE bytes
+//                for (size_t i = 0; i < BLOCK_SIZE; i += 64) {
+//                    __m512i v = _mm512_loadu_si512(s512);
+//                    _mm512_stream_si512(d512, v);
+//                    ++s512;
+//                    ++d512;
+//                }
+//
+//                s += BLOCK_SIZE;
+//                d += BLOCK_SIZE;
+//            }
+//
+//            // Handle remaining bytes with pointer instructions
+//            size_t remaining = size - vec_size;
+//            for (size_t i = 0; i < remaining; ++i) {
+//                *d++ = *s++;
+//            }
+//
+//            // Ensure all non-temporal stores are visible
+//            _mm_sfence();
         }
 
         inline void memcpy_avx2(void* dst, const void* src, std::size_t size) {
