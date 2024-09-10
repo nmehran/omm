@@ -75,7 +75,7 @@ std::vector<CacheInfo> detect_cache_sizes() {
     unsigned int max_leaf = eax;
     #endif
 
-    std::cout << "Max CPUID leaf: " << max_leaf << std::endl;
+//    std::cout << "Max CPUID leaf: " << max_leaf << std::endl; // DEBUG
 
     // Detect cache sizes using CPUID
     #if defined(_MSC_VER)
@@ -104,11 +104,11 @@ std::vector<CacheInfo> detect_cache_sizes() {
     // Adjust L3 cache size (divide by 2 as it's reported as total across all cores)
     l3_size /= 2;
 
-    std::cout << "Detected cache sizes: "
-              << "L1D: " << l1d_size
-              << ", L1I: " << l1i_size
-              << ", L2: " << l2_size
-              << ", L3: " << l3_size << " bytes" << std::endl;
+//    std::cout << "Detected cache sizes: "
+//              << "L1D: " << l1d_size
+//              << ", L1I: " << l1i_size
+//              << ", L2: " << l2_size
+//              << ", L3: " << l3_size << " bytes" << std::endl; // DEBUG
 
     cache_info.push_back({l1d_size, DEFAULT_CACHE_LINE_SIZE, 0, 1});
     cache_info.push_back({l1i_size, DEFAULT_CACHE_LINE_SIZE, 0, 2});
@@ -148,11 +148,11 @@ inline void initialize_cache_sizes() {
     G_L3_CACHE_SIZE = G_L3_CACHE_SIZE > 0 ? G_L3_CACHE_SIZE : DEFAULT_L3_CACHE_SIZE;
     G_CACHE_LINE_SIZE = G_CACHE_LINE_SIZE > 0 ? G_CACHE_LINE_SIZE : DEFAULT_CACHE_LINE_SIZE;
 
-    std::cout << "Initialized cache sizes: "
-              << "L1: " << G_L1_CACHE_SIZE
-              << ", L2: " << G_L2_CACHE_SIZE
-              << ", L3: " << G_L3_CACHE_SIZE
-              << ", Line: " << G_CACHE_LINE_SIZE << " bytes" << std::endl;
+//    std::cout << "Initialized cache sizes: "
+//              << "L1: " << G_L1_CACHE_SIZE
+//              << ", L2: " << G_L2_CACHE_SIZE
+//              << ", L3: " << G_L3_CACHE_SIZE
+//              << ", Line: " << G_CACHE_LINE_SIZE << " bytes" << std::endl; // DEBUG
 }
 
 /**
@@ -171,31 +171,114 @@ inline CacheSizeInitializer g_cache_size_initializer;
  * @brief Checks if the CPU supports AVX-512F instructions.
  * @return true if AVX-512F is supported, false otherwise.
  */
-bool cpu_supports_avx512f();
+inline bool cpu_supports_avx512f() {
+    #if defined(_MSC_VER)
+    int cpu_info[4];
+    __cpuid(cpu_info, 7);
+    return (cpu_info[1] & (1 << 16)) != 0;
+    #elif defined(__GNUC__) || defined(__clang__)
+    unsigned int eax, ebx, ecx, edx;
+    if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
+        return (ebx & (1 << 16)) != 0;
+    }
+    return false;
+    #else
+    return false;
+    #endif
+}
 
 /**
  * @brief Checks if the CPU supports AVX2 instructions.
  * @return true if AVX2 is supported, false otherwise.
  */
-bool cpu_supports_avx2();
+inline bool cpu_supports_avx2() {
+    #if defined(_MSC_VER)
+    int cpu_info[4];
+    __cpuid(cpu_info, 7);
+    return (cpu_info[1] & (1 << 5)) != 0;
+    #elif defined(__GNUC__) || defined(__clang__)
+    unsigned int eax, ebx, ecx, edx;
+    if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
+        return (ebx & (1 << 5)) != 0;
+    }
+    return false;
+    #else
+    return false;
+    #endif
+}
 
 /**
  * @brief Retrieves the CPU's vendor ID string.
  * @return A string containing the CPU vendor ID.
  */
-const char* get_cpu_vendor_id();
+inline const char* get_cpu_vendor_id() {
+    static char vendor[13] = {0};
+    #if defined(_MSC_VER)
+    int cpu_info[4];
+    __cpuid(cpu_info, 0);
+    *reinterpret_cast<int*>(vendor) = cpu_info[1];
+    *reinterpret_cast<int*>(vendor + 4) = cpu_info[3];
+    *reinterpret_cast<int*>(vendor + 8) = cpu_info[2];
+    #elif defined(__GNUC__) || defined(__clang__)
+    unsigned int eax, ebx, ecx, edx;
+    __get_cpuid(0, &eax, &ebx, &ecx, &edx);
+    *reinterpret_cast<int*>(vendor) = ebx;
+    *reinterpret_cast<int*>(vendor + 4) = edx;
+    *reinterpret_cast<int*>(vendor + 8) = ecx;
+    #endif
+    return vendor;
+}
 
 /**
  * @brief Retrieves the CPU's brand string.
  * @return A string containing the CPU brand information.
  */
-const char* get_cpu_brand_string();
+inline const char* get_cpu_brand_string() {
+    static char brand[49] = {0};
+    #if defined(_MSC_VER)
+    int cpu_info[4];
+    __cpuid(cpu_info, 0x80000000);
+    if (cpu_info[0] >= 0x80000004) {
+        __cpuid(cpu_info, 0x80000002);
+        std::memcpy(brand, cpu_info, sizeof(cpu_info));
+        __cpuid(cpu_info, 0x80000003);
+        std::memcpy(brand + 16, cpu_info, sizeof(cpu_info));
+        __cpuid(cpu_info, 0x80000004);
+        std::memcpy(brand + 32, cpu_info, sizeof(cpu_info));
+    }
+    #elif defined(__GNUC__) || defined(__clang__)
+    unsigned int eax, ebx, ecx, edx;
+    __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
+    if (eax >= 0x80000004) {
+        __get_cpuid(0x80000002, &eax, &ebx, &ecx, &edx);
+        std::memcpy(brand, &eax, 16);
+        __get_cpuid(0x80000003, &eax, &ebx, &ecx, &edx);
+        std::memcpy(brand + 16, &eax, 16);
+        __get_cpuid(0x80000004, &eax, &ebx, &ecx, &edx);
+        std::memcpy(brand + 32, &eax, 16);
+    }
+    #endif
+    return brand;
+}
 
 /**
  * @brief Retrieves the CPU's feature flags.
  * @return A 64-bit unsigned integer representing the CPU feature flags.
  */
-std::uint64_t get_cpu_features();
+inline std::uint64_t get_cpu_features() {
+    std::uint64_t features = 0;
+    #if defined(_MSC_VER)
+    int cpu_info[4];
+    __cpuid(cpu_info, 1);
+    features = static_cast<std::uint64_t>(cpu_info[2]) << 32 | cpu_info[3];
+    #elif defined(__GNUC__) || defined(__clang__)
+    unsigned int eax, ebx, ecx, edx;
+    if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+        features = static_cast<std::uint64_t>(ecx) << 32 | edx;
+    }
+    #endif
+    return features;
+}
 
 /**
  * @brief Struct to hold comprehensive CPU information.
@@ -214,7 +297,17 @@ struct CPUInfo {
  * @brief Retrieves comprehensive CPU information.
  * @return A CPUInfo struct containing various CPU details.
  */
-CPUInfo get_cpu_info();
+inline CPUInfo get_cpu_info() {
+    return {
+        get_cpu_vendor_id(),
+        get_cpu_brand_string(),
+        get_cpu_features(),
+        G_L1_CACHE_SIZE,
+        G_L2_CACHE_SIZE,
+        G_L3_CACHE_SIZE,
+        G_CACHE_LINE_SIZE
+    };
+}
 
 } // namespace omm::detail
 
