@@ -4,10 +4,19 @@
 #include "omm/memcpy/memcpy.hpp"
 #include "benchmark_utils.hpp"
 
-constexpr size_t MIN_ALLOCATION = 1024 * 1024;  // 1 MB
-constexpr size_t MAX_ALLOCATION = 1024 * 1024 * 1024;  // 1 GB
-constexpr int REPETITIONS = 5;
+// === Constants ===
+
+constexpr size_t KB = 1024;
+constexpr size_t MB = 1024 * KB;
+constexpr size_t GB = 1024 * MB;
+
+constexpr size_t MIN_ALLOCATION = 1 * MB;
+constexpr size_t MAX_ALLOCATION = 4 * GB;
+
+constexpr uint16_t REPETITIONS = 5;
 constexpr uint16_t CPU_NUM = 0;
+
+// === Benchmark Functions ===
 
 static void BM_StandardMemcpy(benchmark::State& state) {
     omm::benchmark::PinToCore(CPU_NUM);  // Adjust core number as needed
@@ -46,6 +55,8 @@ static void BM_AVX2_Memcpy(benchmark::State& state) {
     }
     state.SetBytesProcessed(int64_t(state.iterations()) * int64_t(size));
 }
+
+// === Benchmark Configuration ===
 
 #define CONFIGURE_BENCHMARK(benchmark_func) \
     BENCHMARK(benchmark_func) \
