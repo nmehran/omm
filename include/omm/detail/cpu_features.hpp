@@ -6,6 +6,7 @@
 #include <array>
 #include <vector>
 #include <iostream>
+#include <x86intrin.h>
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -171,19 +172,16 @@ inline CacheSizeInitializer g_cache_size_initializer;
  * @brief Checks if the CPU supports AVX-512F instructions.
  * @return true if AVX-512F is supported, false otherwise.
  */
+
 inline bool cpu_supports_avx512f() {
-    #if defined(_MSC_VER)
-    int cpu_info[4];
-    __cpuid(cpu_info, 7);
-    return (cpu_info[1] & (1 << 16)) != 0;
-    #elif defined(__GNUC__) || defined(__clang__)
-    unsigned int eax, ebx, ecx, edx;
-    if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
-        return (ebx & (1 << 16)) != 0;
-    }
-    return false;
+    #if defined(__AVX512F__) && defined(__GNUC__) && !defined(__clang__)
+        // GCC defines __AVX512F__ when -mavx512f is used, but we still need to check at runtime
+        return __builtin_cpu_supports("avx512f");
+    #elif defined(__AVX512F__) && (defined(__clang__) || defined(_MSC_VER))
+        // Clang and MSVC define __AVX512F__ only if the CPU supports it
+        return true;
     #else
-    return false;
+        return false;
     #endif
 }
 
@@ -192,18 +190,14 @@ inline bool cpu_supports_avx512f() {
  * @return true if AVX2 is supported, false otherwise.
  */
 inline bool cpu_supports_avx2() {
-    #if defined(_MSC_VER)
-    int cpu_info[4];
-    __cpuid(cpu_info, 7);
-    return (cpu_info[1] & (1 << 5)) != 0;
-    #elif defined(__GNUC__) || defined(__clang__)
-    unsigned int eax, ebx, ecx, edx;
-    if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
-        return (ebx & (1 << 5)) != 0;
-    }
-    return false;
+    #if defined(__AVX2__) && defined(__GNUC__) && !defined(__clang__)
+        // GCC defines __AVX2__ when -mavx2 is used, but we still need to check at runtime
+        return __builtin_cpu_supports("avx2");
+    #elif defined(__AVX2__) && (defined(__clang__) || defined(_MSC_VER))
+        // Clang and MSVC define __AVX2__ only if the CPU supports it
+        return true;
     #else
-    return false;
+        return false;
     #endif
 }
 

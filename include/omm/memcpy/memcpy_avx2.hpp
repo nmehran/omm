@@ -27,17 +27,13 @@
 #ifdef OMM_FULL_LIBRARY
 #include "omm/detail/cpu_features.hpp"
 #else
-// Define L3_CACHE_SIZE and CACHE_LINE_SIZE for standalone use
-static constexpr std::size_t USER_DEFINED_L3_CACHE_SIZE = 32 * 1024 * 1024; // 32MB
-static constexpr std::size_t USER_DEFINED_CACHE_LINE_SIZE = 64;
-
 // Redefine macros for standalone use (suppress warnings)
 #pragma push_macro("G_L3_CACHE_SIZE")
 #pragma push_macro("G_CACHE_LINE_SIZE")
 #undef G_L3_CACHE_SIZE
 #undef G_CACHE_LINE_SIZE
-#define G_L3_CACHE_SIZE USER_DEFINED_L3_CACHE_SIZE
-#define G_CACHE_LINE_SIZE USER_DEFINED_CACHE_LINE_SIZE
+#define G_L3_CACHE_SIZE 32 * 1024 * 1024 // 32MB
+#define G_CACHE_LINE_SIZE 64
 
 #endif
 
