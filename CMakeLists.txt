@@ -43,6 +43,13 @@ include(FetchContent)
 file(GLOB_RECURSE LIBRARY_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 file(GLOB_RECURSE LIBRARY_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/omm/*.hpp")
 
+# Ensure we have at least one source file
+if(NOT LIBRARY_SOURCES)
+    message(STATUS "No source files found. Creating a dummy source file.")
+    file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/src/dummy.cpp" "// Dummy file to ensure the library has at least one source file\n")
+    set(LIBRARY_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/dummy.cpp")
+endif()
+
 # Create and configure the library target
 add_library(omm ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
 target_include_directories(omm
@@ -53,6 +60,9 @@ target_include_directories(omm
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_compile_features(omm PUBLIC cxx_std_20)
+
+# Set the linker language explicitly
+set_target_properties(omm PROPERTIES LINKER_LANGUAGE CXX)
 
 # === Example ===
 
