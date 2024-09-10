@@ -39,30 +39,16 @@ include(FetchContent)
 
 # === Main Library ===
 
-# Auto-detect library sources and headers
-file(GLOB_RECURSE LIBRARY_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+# Auto-detect library headers
 file(GLOB_RECURSE LIBRARY_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/omm/*.hpp")
 
-# Ensure we have at least one source file
-if(NOT LIBRARY_SOURCES)
-    message(STATUS "No source files found. Creating a dummy source file.")
-    file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/src/dummy.cpp" "// Dummy file to ensure the library has at least one source file\n")
-    set(LIBRARY_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/dummy.cpp")
-endif()
-
-# Create and configure the library target
-add_library(omm ${LIBRARY_SOURCES} ${LIBRARY_HEADERS})
-target_include_directories(omm
-        PUBLIC
-        $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+# Create and configure the library target as INTERFACE
+add_library(omm INTERFACE)
+target_include_directories(omm INTERFACE
+    $<INSTALL_INTERFACE:include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_compile_features(omm PUBLIC cxx_std_20)
-
-# Set the linker language explicitly
-set_target_properties(omm PROPERTIES LINKER_LANGUAGE CXX)
+target_compile_features(omm INTERFACE cxx_std_20)
 
 # === Example ===
 
@@ -85,9 +71,9 @@ if(OMM_BUILD_TESTS)
 
     # Google Test
     FetchContent_Declare(
-            googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG release-1.12.1
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.12.1
     )
     # For Windows: Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -114,9 +100,9 @@ if(OMM_BUILD_BENCHMARKS)
 
     # Google Benchmark
     FetchContent_Declare(
-            benchmark
-            GIT_REPOSITORY https://github.com/google/benchmark.git
-            GIT_TAG v1.9.0
+        benchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG v1.9.0
     )
     FetchContent_MakeAvailable(benchmark)
 
@@ -128,9 +114,9 @@ if(OMM_BUILD_BENCHMARKS)
         get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE)
         add_executable(${BENCHMARK_NAME} ${BENCHMARK_SOURCE})
         target_link_libraries(${BENCHMARK_NAME} PRIVATE
-                omm
-                benchmark::benchmark
-                benchmark::benchmark_main
+            omm
+            benchmark::benchmark
+            benchmark::benchmark_main
         )
         target_include_directories(${BENCHMARK_NAME} PRIVATE ${benchmark_INCLUDE_DIRS})
     endforeach()
@@ -142,35 +128,32 @@ endif()
 
 include(GNUInstallDirs)
 install(TARGETS omm
-        EXPORT omm_targets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    EXPORT omm_targets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/omm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Generate and install package configuration files
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/OMMConfig.cmake.in"
-        "${CMAKE_CURRENT_BINARY_DIR}/OMMConfig.cmake"
-        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OMM
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/OMMConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/OMMConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OMM
 )
 write_basic_package_version_file(
-        "${CMAKE_CURRENT_BINARY_DIR}/OMMConfigVersion.cmake"
-        VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion
+    "${CMAKE_CURRENT_BINARY_DIR}/OMMConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
 )
 install(FILES
-        "${CMAKE_CURRENT_BINARY_DIR}/OMMConfig.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/OMMConfigVersion.cmake"
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OMM
+    "${CMAKE_CURRENT_BINARY_DIR}/OMMConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/OMMConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OMM
 )
 
 # Export targets
 install(EXPORT omm_targets
-        FILE OMMTargets.cmake
-        NAMESPACE OMM::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OMM
+    FILE OMMTargets.cmake
+    NAMESPACE OMM::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OMM
 )
