@@ -14,6 +14,15 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune
 # SIMD instruction set flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx -mavx2 -mbmi2 -msse4.2 -mfma")
 
+# Enable AVX-512 if supported
+if(AVX512_SUPPORTED)
+    message(STATUS "AVX-512 is supported and will be enabled")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f -mavx512vl")
+    add_definitions(-DAVX512_SUPPORTED)
+else()
+    message(STATUS "AVX-512 is not supported and will not be enabled")
+endif()
+
 # Additional optimization flags
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fipa-pta")
 
@@ -32,8 +41,8 @@ else()
 endif()
 
 # Options for building tests and benchmarks
-option(OMM_BUILD_TESTS "Build OMM tests" OFF)
-option(OMM_BUILD_BENCHMARKS "Build OMM benchmarks" OFF)
+option(OMM_BUILD_TESTS "Build OMM tests" ON)
+option(OMM_BUILD_BENCHMARKS "Build OMM benchmarks" ON)
 
 include(FetchContent)
 
