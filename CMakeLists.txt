@@ -32,8 +32,8 @@ else()
 endif()
 
 # Options for building tests and benchmarks
-option(OMM_BUILD_TESTS "Build OMM tests" ON)
-option(OMM_BUILD_BENCHMARKS "Build OMM benchmarks" ON)
+option(OMM_BUILD_TESTS "Build OMM tests" OFF)
+option(OMM_BUILD_BENCHMARKS "Build OMM benchmarks" OFF)
 
 include(FetchContent)
 
