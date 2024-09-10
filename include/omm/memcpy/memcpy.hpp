@@ -7,18 +7,20 @@
 #include <cstring>
 #include <functional>
 
+#include "omm/detail/cpu_features.hpp"
+
+// Include specialized implementations
 #ifdef __AVX512F__
-#include <immintrin.h>
-#elif defined(__AVX2__)
-#include <immintrin.h>
+#include "memcpy_avx512.hpp"
 #endif
 
-#include "omm/detail/cpu_features.hpp"
+#ifdef __AVX2__
+#include "memcpy_avx2.hpp"
+#endif
 
 namespace omm {
 
 // Public API
-
 enum class MemcpyImpl {
     Auto,
     AVX512,
@@ -30,8 +32,6 @@ template<typename Dst, typename Src>
 void memcpy(Dst&& dst, const Src& src, std::size_t size = 0, MemcpyImpl impl = MemcpyImpl::Auto);
 
 void memcpy_auto(void* dst, const void* src, std::size_t size);
-void memcpy_avx512(void* dst, const void* src, std::size_t size);
-void memcpy_avx2(void* dst, const void* src, std::size_t size);
 void memcpy_standard(void* dst, const void* src, std::size_t size);
 
 std::function<void(void*, const void*, std::size_t)> get_memcpy_function(MemcpyImpl impl = MemcpyImpl::Auto);
@@ -39,7 +39,6 @@ std::function<void(void*, const void*, std::size_t)> get_memcpy_function(MemcpyI
 namespace detail {
 
 // Implementation details
-
 using MemcpyFunc = void (*)(void*, const void*, std::size_t);
 
 // Helper type traits and functions
@@ -86,107 +85,6 @@ inline std::size_t get_size(const T& container, std::size_t size) {
     }
 }
 
-// Implementation functions
-#ifdef __AVX512F__
-inline void memcpy_avx512_impl(void* dst, const void* src, std::size_t size) {
-    char* d = reinterpret_cast<char*>(dst);
-    const char* s = reinterpret_cast<const char*>(src);
-
-    // For small sizes, use standard memcpy
-    if (size <= G_L3_CACHE_SIZE) {
-        __builtin_memcpy(dst, src, size);
-        return;
-    }
-
-    // Handle initial unaligned bytes
-    size_t initial_bytes = (64 - (reinterpret_cast<uintptr_t>(d) & 63)) & 63;
-    if (initial_bytes > 0) {
-        __builtin_memcpy(d, s, initial_bytes);
-        d += initial_bytes;
-        s += initial_bytes;
-        size -= initial_bytes;
-    }
-
-    constexpr size_t BLOCK_SIZE = 256;
-    constexpr size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
-
-    size_t vec_size = size & ~(BLOCK_SIZE - 1);
-    const char* s_end = s + vec_size;
-
-    while (s < s_end) {
-        _mm_prefetch(s, _MM_HINT_T0);
-        for (size_t i = 0; i < PREFETCH_DISTANCE; i += G_CACHE_LINE_SIZE) {
-            _mm_prefetch(s + i, _MM_HINT_NTA);
-        }
-
-        for (size_t i = 0; i < BLOCK_SIZE; i += 64) {
-            __m512i v = _mm512_loadu_si512(reinterpret_cast<const __m512i*>(s + i));
-            _mm512_stream_si512(reinterpret_cast<__m512i*>(d + i), v);
-        }
-
-        s += BLOCK_SIZE;
-        d += BLOCK_SIZE;
-    }
-
-    size_t remaining = size - vec_size;
-    if (remaining > 0) {
-        __builtin_memcpy(d, s, remaining);
-    }
-
-    // Ensure all non-temporal stores are visible
-    _mm_sfence();
-}
-#elif defined(__AVX2__)
-inline void memcpy_avx2_impl(void* dst, const void* src, std::size_t size) {
-    char* d = reinterpret_cast<char*>(dst);
-    const char* s = reinterpret_cast<const char*>(src);
-
-    // For small sizes, use standard memcpy
-    if (size <= G_L3_CACHE_SIZE) {
-        __builtin_memcpy(dst, src, size);
-        return;
-    }
-
-    // Handle initial unaligned bytes
-    size_t initial_bytes = (32 - (reinterpret_cast<uintptr_t>(d) & 31)) & 31;
-    if (initial_bytes > 0) {
-        __builtin_memcpy(d, s, initial_bytes);
-        d += initial_bytes;
-        s += initial_bytes;
-        size -= initial_bytes;
-    }
-
-    constexpr size_t BLOCK_SIZE = 256;
-    constexpr size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
-
-    size_t vec_size = size & ~(BLOCK_SIZE - 1);
-    const char* s_end = s + vec_size;
-
-    while (s < s_end) {
-        _mm_prefetch(s, _MM_HINT_T0);
-        for (size_t i = 0; i < PREFETCH_DISTANCE; i += G_CACHE_LINE_SIZE) {
-            _mm_prefetch(s + i, _MM_HINT_NTA);
-        }
-
-        for (size_t i = 0; i < BLOCK_SIZE; i += 32) {
-            __m256i v = _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(s + i));
-            _mm256_stream_si256(reinterpret_cast<__m256i*>(d + i), v);
-        }
-
-        s += BLOCK_SIZE;
-        d += BLOCK_SIZE;
-    }
-
-    size_t remaining = size - vec_size;
-    if (remaining > 0) {
-        __builtin_memcpy(d, s, remaining);
-    }
-
-    // Ensure all non-temporal stores are visible
-    _mm_sfence();
-}
-#endif
-
 inline void standard_memcpy_impl(void* dst, const void* src, std::size_t size) {
     std::memcpy(dst, src, size);
 }
@@ -195,15 +93,15 @@ inline void standard_memcpy_impl(void* dst, const void* src, std::size_t size) {
 inline MemcpyFunc get_best_memcpy_impl() {
 #ifdef __AVX512F__
     if (cpu_supports_avx512f()) {
-        return memcpy_avx512_impl;
+        return memcpy_avx512;
     }
 #endif
 #ifdef __AVX2__
-    if (omm::detail::cpu_supports_avx2()) {
-        return memcpy_avx2_impl;
+    if (cpu_supports_avx2()) {
+        return memcpy_avx2;
     }
 #endif
-    return standard_memcpy_impl;
+    return memcpy_standard;
 }
 
 } // namespace detail
@@ -218,20 +116,20 @@ inline void memcpy(Dst&& dst, const Src& src, std::size_t size, MemcpyImpl impl)
     switch(impl) {
         case MemcpyImpl::AVX512:
 #ifdef __AVX512F__
-            detail::memcpy_avx512_impl(d, s, copy_size);
+            memcpy_avx512(d, s, copy_size);
 #else
-            detail::standard_memcpy_impl(d, s, copy_size);
+            memcpy_standard(d, s, copy_size);
 #endif
             break;
         case MemcpyImpl::AVX2:
 #ifdef __AVX2__
-            detail::memcpy_avx2_impl(d, s, copy_size);
+            memcpy_avx2(d, s, copy_size);
 #else
-            detail::standard_memcpy_impl(d, s, copy_size);
+            memcpy_standard(d, s, copy_size);
 #endif
             break;
         case MemcpyImpl::Standard:
-            detail::standard_memcpy_impl(d, s, copy_size);
+            memcpy_standard(d, s, copy_size);
             break;
         case MemcpyImpl::Auto:
         default:
@@ -241,27 +139,27 @@ inline void memcpy(Dst&& dst, const Src& src, std::size_t size, MemcpyImpl impl)
 }
 
 inline void memcpy_auto(void* dst, const void* src, std::size_t size) {
-    memcpy(dst, src, size, MemcpyImpl::Auto);
-}
-
-inline void memcpy_avx512(void* dst, const void* src, std::size_t size) {
-    memcpy(dst, src, size, MemcpyImpl::AVX512);
-}
-
-inline void memcpy_avx2(void* dst, const void* src, std::size_t size) {
-    memcpy(dst, src, size, MemcpyImpl::AVX2);
+    detail::get_best_memcpy_impl()(dst, src, size);
 }
 
 inline void memcpy_standard(void* dst, const void* src, std::size_t size) {
-    memcpy(dst, src, size, MemcpyImpl::Standard);
+    detail::standard_memcpy_impl(dst, src, size);
 }
 
 inline std::function<void(void*, const void*, std::size_t)> get_memcpy_function(MemcpyImpl impl) {
     switch(impl) {
         case MemcpyImpl::AVX512:
+#ifdef __AVX512F__
             return memcpy_avx512;
+#else
+            return memcpy_standard;
+#endif
         case MemcpyImpl::AVX2:
+#ifdef __AVX2__
             return memcpy_avx2;
+#else
+            return memcpy_standard;
+#endif
         case MemcpyImpl::Standard:
             return memcpy_standard;
         case MemcpyImpl::Auto:
