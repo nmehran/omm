@@ -31,27 +31,11 @@ else()
     message(WARNING "IPO/LTO not supported: ${error}")
 endif()
 
+# Options for building tests and benchmarks
+option(OMM_BUILD_TESTS "Build OMM tests" ON)
+option(OMM_BUILD_BENCHMARKS "Build OMM benchmarks" ON)
+
 include(FetchContent)
-
-# === External Dependencies ===
-
-# Google Test
-FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG release-1.12.1
-)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
-# Google Benchmark
-FetchContent_Declare(
-        benchmark
-        GIT_REPOSITORY https://github.com/google/benchmark.git
-        GIT_TAG v1.9.0
-)
-FetchContent_MakeAvailable(benchmark)
 
 # === Main Library ===
 
@@ -84,35 +68,65 @@ endforeach()
 
 # === Tests ===
 
-enable_testing()
+if(OMM_BUILD_TESTS)
+    message(STATUS "Building tests")
 
-# Auto-detect test sources
-file(GLOB TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
+    enable_testing()
 
-# Create test executables
-foreach(TEST_SOURCE ${TEST_SOURCES})
-    get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
-    add_executable(${TEST_NAME} ${TEST_SOURCE})
-    target_link_libraries(${TEST_NAME} PRIVATE omm GTest::gtest_main)
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-endforeach()
+    # Google Test
+    FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG release-1.12.1
+    )
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    # Auto-detect test sources
+    file(GLOB TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
+
+    # Create test executables
+    foreach(TEST_SOURCE ${TEST_SOURCES})
+        get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+        add_executable(${TEST_NAME} ${TEST_SOURCE})
+        target_link_libraries(${TEST_NAME} PRIVATE omm GTest::gtest_main)
+        add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    endforeach()
+else ()
+    message(STATUS "Not building tests")
+endif()
 
 # === Benchmarks ===
 
-# Auto-detect benchmark sources
-file(GLOB BENCHMARK_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/*.cpp")
+if(OMM_BUILD_BENCHMARKS)
+    message(STATUS "Building benchmarks")
 
-# Create benchmark executables
-foreach(BENCHMARK_SOURCE ${BENCHMARK_SOURCES})
-    get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE)
-    add_executable(${BENCHMARK_NAME} ${BENCHMARK_SOURCE})
-    target_link_libraries(${BENCHMARK_NAME} PRIVATE
-            omm
-            benchmark::benchmark
-            benchmark::benchmark_main
+    # Google Benchmark
+    FetchContent_Declare(
+            benchmark
+            GIT_REPOSITORY https://github.com/google/benchmark.git
+            GIT_TAG v1.9.0
     )
-    target_include_directories(${BENCHMARK_NAME} PRIVATE ${benchmark_INCLUDE_DIRS})
-endforeach()
+    FetchContent_MakeAvailable(benchmark)
+
+    # Auto-detect benchmark sources
+    file(GLOB BENCHMARK_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/*.cpp")
+
+    # Create benchmark executables
+    foreach(BENCHMARK_SOURCE ${BENCHMARK_SOURCES})
+        get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE)
+        add_executable(${BENCHMARK_NAME} ${BENCHMARK_SOURCE})
+        target_link_libraries(${BENCHMARK_NAME} PRIVATE
+                omm
+                benchmark::benchmark
+                benchmark::benchmark_main
+        )
+        target_include_directories(${BENCHMARK_NAME} PRIVATE ${benchmark_INCLUDE_DIRS})
+    endforeach()
+else ()
+    message(STATUS "Not building benchmarks")
+endif()
 
 # === Installation ===
 
