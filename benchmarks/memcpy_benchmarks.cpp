@@ -6,10 +6,11 @@
 
 constexpr size_t MIN_ALLOCATION = 1024 * 1024;  // 1 MB
 constexpr size_t MAX_ALLOCATION = 1024 * 1024 * 1024;  // 1 GB
-constexpr int REPETITIONS = 2;
+constexpr int REPETITIONS = 5;
+constexpr uint16_t CPU_NUM = 0;
 
 static void BM_StandardMemcpy(benchmark::State& state) {
-    omm::benchmark::PinToCore(-1);  // Adjust core number as needed
+    omm::benchmark::PinToCore(CPU_NUM);  // Adjust core number as needed
     const size_t size = state.range(0);
     auto src = std::make_unique<char[]>(size);
     auto dest = std::make_unique<char[]>(size);
@@ -28,7 +29,7 @@ static void BM_StandardMemcpy(benchmark::State& state) {
 }
 
 static void BM_AVX2_Memcpy(benchmark::State& state) {
-    omm::benchmark::PinToCore(-1);  // Adjust core number as needed
+    omm::benchmark::PinToCore(CPU_NUM);  // Adjust core number as needed
     const size_t size = state.range(0);
     auto src = std::make_unique<char[]>(size);
     auto dest = std::make_unique<char[]>(size);
@@ -55,7 +56,7 @@ static void BM_AVX2_Memcpy(benchmark::State& state) {
         ->ReportAggregatesOnly(true) \
         ->Name(omm::benchmark::GetColoredBenchmarkName(#benchmark_func))
 
-//CONFIGURE_BENCHMARK(BM_StandardMemcpy);
+CONFIGURE_BENCHMARK(BM_StandardMemcpy);
 CONFIGURE_BENCHMARK(BM_AVX2_Memcpy);
 
 int main(int argc, char** argv) {
