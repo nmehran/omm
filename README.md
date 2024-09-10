@@ -41,7 +41,7 @@ Here's a basic example of using OMM's optimized `memcpy`:
 #include <omm/memcpy/memcpy.hpp>
 
 int main() {
-    const size_t size = 1024 * 1024; // 1 MB
+    const size_t size = 1024 * 1024 * 1024; // 1 GB
     std::unique_ptr<char[]> src = std::make_unique<char[]>(size);
     std::unique_ptr<char[]> dest = std::make_unique<char[]>(size);
 
