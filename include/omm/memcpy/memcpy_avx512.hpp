@@ -40,14 +40,14 @@
 namespace omm {
 
 inline void memcpy_avx512(void* dst, const void* src, std::size_t size) {
-    char* d = reinterpret_cast<char*>(dst);
-    const char* s = reinterpret_cast<const char*>(src);
-
     // For sizes smaller than or equal to L3 cache size, use builtin memcpy
     if (size <= G_L3_CACHE_SIZE) {
         __builtin_memcpy(dst, src, size);
         return;
     }
+
+    char* d = reinterpret_cast<char*>(dst);
+    const char* s = reinterpret_cast<const char*>(src);
 
     // Handle initial unaligned bytes
     size_t initial_bytes = (64 - (reinterpret_cast<uintptr_t>(d) & 63)) & 63;
@@ -58,15 +58,16 @@ inline void memcpy_avx512(void* dst, const void* src, std::size_t size) {
         size -= initial_bytes;
     }
 
-    constexpr size_t BLOCK_SIZE = 256;
-    constexpr size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
+    const size_t CACHE_LINE_1X = G_CACHE_LINE_SIZE;
+    const size_t CACHE_LINE_4X = G_CACHE_LINE_SIZE * 4;
+    const size_t BLOCK_SIZE = CACHE_LINE_4X;
+    const size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
 
     size_t vec_size = size & ~(BLOCK_SIZE - 1);
     const char* s_end = s + vec_size;
 
     while (s < s_end) {
-        _mm_prefetch(s, _MM_HINT_T0);
-        for (size_t i = 0; i < PREFETCH_DISTANCE; i += G_CACHE_LINE_SIZE) {
+        for (size_t i = G_CACHE_LINE_SIZE; i < PREFETCH_DISTANCE; i += G_CACHE_LINE_SIZE) {
             _mm_prefetch(s + i, _MM_HINT_NTA);
         }
 

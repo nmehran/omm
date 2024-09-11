@@ -9,10 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # === Build Configuration ===
 
 # General optimization flags
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -flto -ffast-math -funroll-loops -fomit-frame-pointer -ftree-vectorize")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -mtune=native -flto -funroll-loops -fomit-frame-pointer")
 
 # SIMD instruction set flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx -mavx2 -mbmi2 -msse4.2 -mfma")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx -mavx2")
 
 # Enable AVX-512 if supported
 if(AVX512_SUPPORTED)
@@ -41,8 +41,8 @@ else()
 endif()
 
 # Options for building tests and benchmarks
-option(OMM_BUILD_TESTS "Build OMM tests" ON)
-option(OMM_BUILD_BENCHMARKS "Build OMM benchmarks" ON)
+option(OMM_BUILD_TESTS "Build OMM tests" OFF)
+option(OMM_BUILD_BENCHMARKS "Build OMM benchmarks" OFF)
 
 include(FetchContent)
 
