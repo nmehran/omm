@@ -21,17 +21,17 @@
 #define OMM_MEMCPY_AVX2_HPP
 
 #include <cstddef>
-#include <immintrin.h>
 #include <cstdint>
+#include <immintrin.h>
 
 #ifdef OMM_FULL_LIBRARY
 #include "omm/detail/cpu_features.hpp"
 #else
-// Redefine macros for standalone use (suppress warnings)
 #pragma push_macro("G_L3_CACHE_SIZE")
 #pragma push_macro("G_CACHE_LINE_SIZE")
 #undef G_L3_CACHE_SIZE
 #undef G_CACHE_LINE_SIZE
+// Redefine macros for standalone use (auto-detected by cpu_features.hpp, if using full library)
 #define G_L3_CACHE_SIZE 32 * 1024 * 1024 // 32MB
 #define G_CACHE_LINE_SIZE 64
 
@@ -39,54 +39,60 @@
 
 namespace omm {
 
-inline void memcpy_avx2(void* dst, const void* src, std::size_t size) {
-
-    // For sizes smaller than or equal to L3 cache size, use builtin memcpy
+inline void memcpy_avx2(void* dest, const void* src, std::size_t size) noexcept {
+    // Fast path for small sizes: leverage compiler's built-in optimization
     if (size <= G_L3_CACHE_SIZE) {
-        __builtin_memcpy(dst, src, size);
+        __builtin_memcpy(dest, src, size);
         return;
     }
 
-    char* d = reinterpret_cast<char*>(dst);
-    const char* s = reinterpret_cast<const char*>(src);
+    // AVX2 uses 256-bit (32-byte) vectors
+    static constexpr std::size_t ALIGNMENT = 32;
+    static constexpr std::size_t UNROLL_FACTOR = 8;
+    static constexpr std::size_t BLOCK_SIZE = ALIGNMENT * UNROLL_FACTOR;
+    // Prefetch two blocks ahead - adjust based on target hardware characteristics
+    static constexpr std::size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
+    static constexpr std::size_t PREFETCH_COUNT = PREFETCH_DISTANCE / G_CACHE_LINE_SIZE;
 
-    // Handle initial unaligned bytes
-    size_t initial_bytes = (32 - (reinterpret_cast<uintptr_t>(d) & 31)) & 31;
+    auto* dest_ptr = static_cast<uint8_t*>(dest);
+    const auto* src_ptr = static_cast<const uint8_t*>(src);
+
+    // Align destination to ALIGNMENT boundary for optimal streaming stores
+    std::size_t initial_bytes = (ALIGNMENT - (reinterpret_cast<std::uintptr_t>(dest_ptr) & ALIGNMENT - 1)) & ALIGNMENT - 1;
     if (initial_bytes > 0) {
-        __builtin_memcpy(d, s, initial_bytes);
-        d += initial_bytes;
-        s += initial_bytes;
+        __builtin_memcpy(dest_ptr, src_ptr, initial_bytes);
+        dest_ptr += initial_bytes;
+        src_ptr += initial_bytes;
         size -= initial_bytes;
     }
 
-    const size_t CACHE_LINE_1X = G_CACHE_LINE_SIZE;
-    const size_t CACHE_LINE_2X = G_CACHE_LINE_SIZE * 2;
-    const size_t BLOCK_SIZE = CACHE_LINE_2X;
-    const size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
+    // Use __m256i pointers for AVX2 intrinsics
+    auto* dest_vec = reinterpret_cast<__m256i*>(dest_ptr);
+    const auto* src_vec = reinterpret_cast<const __m256i*>(src_ptr);
+    // Compute size that's a multiple of BLOCK_SIZE for vectorized processing
+    const std::size_t vector_size = size & ~(BLOCK_SIZE - 1);
 
-    size_t vec_size = size & ~(BLOCK_SIZE - 1);
-    const char* s_end = s + vec_size;
-
-    while (s < s_end) {
-        for (size_t i = G_CACHE_LINE_SIZE; i < PREFETCH_DISTANCE; i += G_CACHE_LINE_SIZE) {
-            _mm_prefetch(s + i, _MM_HINT_NTA);
+    for (std::size_t i = 0; i < vector_size; i += BLOCK_SIZE) {
+        // Prefetch data using NTA (Non-Temporal Access) hint to bypass cache for large transfers
+        #pragma unroll(PREFETCH_COUNT)
+        for (std::size_t p = 0; p < PREFETCH_DISTANCE; p += G_CACHE_LINE_SIZE) {
+            _mm_prefetch(src_ptr + p, _MM_HINT_NTA);
         }
-
-        for (size_t i = 0; i < BLOCK_SIZE; i += 32) {
-            __m256i v = _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(s + i));
-            _mm256_stream_si256(reinterpret_cast<__m256i*>(d + i), v);
+        // Unrolled AVX2 loads and streaming stores to minimize cache interaction
+        #pragma unroll(UNROLL_FACTOR)
+        for (std::size_t p = 0; p < UNROLL_FACTOR; ++p) {
+            _mm256_stream_si256(dest_vec++, _mm256_loadu_si256(src_vec++));
         }
-
-        s += BLOCK_SIZE;
-        d += BLOCK_SIZE;
+        src_ptr += BLOCK_SIZE;
     }
 
-    size_t remaining = size - vec_size;
+    // Handle remaining bytes (< BLOCK_SIZE) with standard memcpy
+    std::size_t remaining = size - vector_size;
     if (remaining > 0) {
-        __builtin_memcpy(d, s, remaining);
+        __builtin_memcpy(dest_vec, src_ptr, remaining);
     }
 
-    // Ensure all non-temporal stores are visible
+    // Ensure all non-temporal (streaming) stores are visible
     _mm_sfence();
 }
 

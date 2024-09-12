@@ -68,12 +68,15 @@ BENCHMARK_DEFINE_F(MemcpyBenchmark, AVX2_Memcpy)(benchmark::State& state) {
 
 #define CONFIGURE_BENCHMARK(func_name) \
     BENCHMARK_REGISTER_F(MemcpyBenchmark, func_name) \
-        ->RangeMultiplier(2)->Range(MIN_ALLOCATION, MAX_ALLOCATION) \
+        ->Name(omm::benchmark::GetColoredBenchmarkName(#func_name)) \
+        ->Range(MIN_ALLOCATION, MAX_ALLOCATION) \
+        ->RangeMultiplier(2) \
         ->Repetitions(REPETITIONS) \
-        ->MinTime(1.0) \
+        ->MinTime(20.0) \
         ->Unit(benchmark::kMillisecond) \
-        ->ReportAggregatesOnly(true) \
-        ->Name(omm::benchmark::GetColoredBenchmarkName(#func_name))
+        ->UseRealTime() \
+        ->MeasureProcessCPUTime() \
+        ->ReportAggregatesOnly(true)
 
 CONFIGURE_BENCHMARK(StandardMemcpy);
 CONFIGURE_BENCHMARK(AVX2_Memcpy);
