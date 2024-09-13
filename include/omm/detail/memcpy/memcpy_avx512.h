@@ -17,8 +17,7 @@
  *   - Nima Mehrani <nm@gradientdynamics.com>
  */
 
-#ifndef OMM_MEMCPY_AVX512_H
-#define OMM_MEMCPY_AVX512_H
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -39,11 +38,11 @@
 
 namespace omm {
 
-inline void memcpy_avx512(void* dest, const void* src, std::size_t size) noexcept {
+inline void *memcpy_avx512(void *__restrict dest, const void *__restrict src, std::size_t size) noexcept {
     // Fast path for small sizes: leverage compiler's built-in optimization
     if (size <= G_L3_CACHE_SIZE) {
         __builtin_memcpy(dest, src, size);
-        return;
+        return dest;
     }
 
     // AVX-512 uses 512-bit (64-byte) vectors
@@ -94,8 +93,8 @@ inline void memcpy_avx512(void* dest, const void* src, std::size_t size) noexcep
 
     // Ensure all non-temporal (streaming) stores are visible
     _mm_sfence();
+
+    return dest;
 }
 
 } // namespace omm
-
-#endif // OMM_MEMCPY_AVX512_H

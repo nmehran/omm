@@ -17,8 +17,7 @@
  *   - Nima Mehrani <nm@gradientdynamics.com>
  */
 
-#ifndef OMM_MEMCPY_AVX2_H
-#define OMM_MEMCPY_AVX2_H
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -39,11 +38,11 @@
 
 namespace omm {
 
-inline void memcpy_avx2(void* dest, const void* src, std::size_t size) noexcept {
+__attribute__((nonnull(1, 2)))
+inline void* memcpy_avx2(void* __restrict dest, const void* __restrict src, std::size_t size) noexcept {
     // Fast path for small sizes: leverage compiler's built-in optimization
-    if (size <= G_L3_CACHE_SIZE) {
-        __builtin_memcpy(dest, src, size);
-        return;
+    if (size <= G_L2_CACHE_SIZE) {
+        return __builtin_memcpy(dest, src, size);
     }
 
     // AVX2 uses 256-bit (32-byte) vectors
@@ -54,8 +53,8 @@ inline void memcpy_avx2(void* dest, const void* src, std::size_t size) noexcept 
     static constexpr std::size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
     static constexpr std::size_t PREFETCH_COUNT = PREFETCH_DISTANCE / G_CACHE_LINE_SIZE;
 
-    auto* dest_ptr = static_cast<uint8_t*>(dest);
-    const auto* src_ptr = static_cast<const uint8_t*>(src);
+    auto* dest_ptr = static_cast<uint8_t* __restrict>(dest);
+    const auto* src_ptr = static_cast<const uint8_t* __restrict>(src);
 
     // Align destination to ALIGNMENT boundary for optimal streaming stores
     std::size_t initial_bytes = (ALIGNMENT - (reinterpret_cast<std::uintptr_t>(dest_ptr) & ALIGNMENT - 1)) & ALIGNMENT - 1;
@@ -67,8 +66,8 @@ inline void memcpy_avx2(void* dest, const void* src, std::size_t size) noexcept 
     }
 
     // Use __m256i pointers for AVX2 intrinsics
-    auto* dest_vec = reinterpret_cast<__m256i*>(dest_ptr);
-    const auto* src_vec = reinterpret_cast<const __m256i*>(src_ptr);
+    auto* dest_vec = reinterpret_cast<__m256i* __restrict>(dest_ptr);
+    const auto* src_vec = reinterpret_cast<const __m256i* __restrict>(src_ptr);
     // Compute size that's a multiple of BLOCK_SIZE for vectorized processing
     const std::size_t vector_size = size & ~(BLOCK_SIZE - 1);
 
@@ -94,8 +93,8 @@ inline void memcpy_avx2(void* dest, const void* src, std::size_t size) noexcept 
 
     // Ensure all non-temporal (streaming) stores are visible
     _mm_sfence();
+
+    return dest;
 }
 
 } // namespace omm
-
-#endif // OMM_MEMCPY_AVX2_H
