@@ -7,21 +7,21 @@
 #include <iostream>
 #include "omm/memcpy.h"
 
-using MemcpyFunc = void (*)(void*, const void*, std::size_t);
+using MemcpyFunc = void *(*)(void*, const void*, std::size_t);
 
 class MemcpyTest : public ::testing::TestWithParam<std::pair<MemcpyFunc, const char*>> {
 protected:
     std::vector<size_t> test_sizes;
     std::mt19937 gen;
-    std::array<size_t, 8> alignments;
+    std::array<size_t, 8> alignments{};
 
     void SetUp() override {
         // Test sizes focusing on L3 cache boundary
         test_sizes = {
-            G_L3_CACHE_SIZE,
-            G_L3_CACHE_SIZE + 1,
-            G_L3_CACHE_SIZE * 2,
-            G_L3_CACHE_SIZE * 2 + 1023,
+                G_L3_CACHE_SIZE,
+                G_L3_CACHE_SIZE + 1,
+                G_L3_CACHE_SIZE * 2,
+                G_L3_CACHE_SIZE * 2 + 1023,
         };
 
         // Generate alignment offsets (0 to 56 bytes, step 8)
@@ -42,7 +42,7 @@ protected:
     }
 
     // Report the first mismatch found in a memory comparison
-    void report_mismatch(const char* src, const char* dest, size_t size) {
+    static void report_mismatch(const char* src, const char* dest, size_t size) {
         for (size_t i = 0; i < size; ++i) {
             if (src[i] != dest[i]) {
                 ADD_FAILURE() << "Mismatch at byte " << i << ": expected "
@@ -54,7 +54,7 @@ protected:
     }
 
     // Test non-overlapping memory copy
-    void test_non_overlapping_copy(MemcpyFunc memcpy_func, const char* func_name) {
+    static void test_non_overlapping_copy(void *(*memcpy_func)(void*, const void*, size_t), const char* func_name) {
         constexpr size_t size = 1024;
         std::vector<char> src(size);
         std::vector<char> dest(size);
@@ -63,7 +63,7 @@ protected:
         memcpy_func(dest.data(), src.data(), size);
 
         EXPECT_TRUE(std::equal(src.begin(), src.end(), dest.begin()))
-            << "Non-overlapping copy failed for " << func_name;
+                            << "Non-overlapping copy failed for " << func_name;
 
         if (!std::equal(src.begin(), src.end(), dest.begin())) {
             for (size_t i = 0; i < size; ++i) {
@@ -77,7 +77,7 @@ protected:
     }
 
     // Test overlapping memory copy
-    void test_overlapping_copy(MemcpyFunc memcpy_func, const char* func_name) {
+    static void test_overlapping_copy(void *(*memcpy_func)(void*, const void*, size_t), const char* func_name) {
         constexpr size_t size = 1024;
         std::vector<char> buffer(size * 2);
         std::iota(buffer.begin(), buffer.end(), 0);  // Fill with 0, 1, 2, ...
@@ -89,7 +89,7 @@ protected:
         memcpy_func(buffer.data() + 100, buffer.data(), size);
 
         EXPECT_TRUE(std::equal(expected.begin(), expected.end(), buffer.begin()))
-            << "Forward overlapping copy failed for " << func_name;
+                            << "Forward overlapping copy failed for " << func_name;
 
         if (!std::equal(expected.begin(), expected.end(), buffer.begin())) {
             report_first_mismatch(expected, buffer, "Forward");
@@ -103,7 +103,7 @@ protected:
         memcpy_func(buffer.data(), buffer.data() + 100, size);
 
         EXPECT_TRUE(std::equal(expected.begin(), expected.end(), buffer.begin()))
-            << "Backward overlapping copy failed for " << func_name;
+                            << "Backward overlapping copy failed for " << func_name;
 
         if (!std::equal(expected.begin(), expected.end(), buffer.begin())) {
             report_first_mismatch(expected, buffer, "Backward");
@@ -112,7 +112,7 @@ protected:
 
 private:
     // Helper function to report the first mismatch in overlapping copy tests
-    void report_first_mismatch(const std::vector<char>& expected, const std::vector<char>& actual, const char* direction) {
+    static void report_first_mismatch(const std::vector<char>& expected, const std::vector<char>& actual, const char* direction) {
         for (size_t i = 0; i < expected.size(); ++i) {
             if (expected[i] != actual[i]) {
                 std::cout << direction << " mismatch at index " << i << ": expected = "
@@ -195,13 +195,13 @@ TEST_P(MemcpyTest, OverlappingCopy) {
 
 // Instantiate the test suite for different memcpy implementations
 INSTANTIATE_TEST_SUITE_P(
-    MemcpyTests,
-    MemcpyTest,
-    ::testing::Values(
-        std::make_pair(omm::memcpy_standard, "omm::memcpy_standard"),
-        std::make_pair(omm::memcpy_avx2, "omm::memcpy_avx2"),
-        std::make_pair(omm::memcpy_auto, "omm::memcpy_auto")
-    )
+        MemcpyTests,
+        MemcpyTest,
+        ::testing::Values(
+                std::make_pair(std::memcpy, "std::memcpy"),
+                std::make_pair(omm::memcpy_avx2, "omm::memcpy_avx2"),
+                std::make_pair(omm::memcpy, "omm::memcpy")
+        )
 );
 
 // Conditionally compile AVX-512 tests
