@@ -17,21 +17,21 @@
  *   - Nima Mehrani <nm@gradientdynamics.com>
  */
 
-#ifndef OMM_MEMCPY_AVX2_HPP
-#define OMM_MEMCPY_AVX2_HPP
+#ifndef OMM_MEMCPY_AVX2_H
+#define OMM_MEMCPY_AVX2_H
 
 #include <cstddef>
 #include <cstdint>
 #include <immintrin.h>
 
 #ifdef OMM_FULL_LIBRARY
-#include "omm/detail/cpu_features.hpp"
+#include "omm/detail/cpu_features.h"
 #else
 #pragma push_macro("G_L3_CACHE_SIZE")
 #pragma push_macro("G_CACHE_LINE_SIZE")
 #undef G_L3_CACHE_SIZE
 #undef G_CACHE_LINE_SIZE
-// Redefine macros for standalone use (auto-detected by cpu_features.hpp, if using full library)
+// Redefine macros for standalone use (auto-detected by cpu_features.h, if using full library)
 #define G_L3_CACHE_SIZE 32 * 1024 * 1024 // 32MB
 #define G_CACHE_LINE_SIZE 64
 
@@ -98,4 +98,4 @@ inline void memcpy_avx2(void* dest, const void* src, std::size_t size) noexcept 
 
 } // namespace omm
 
-#endif // OMM_MEMCPY_AVX2_HPP
+#endif // OMM_MEMCPY_AVX2_H

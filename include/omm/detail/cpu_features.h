@@ -1,5 +1,5 @@
-#ifndef OMM_CPU_FEATURES_HPP
-#define OMM_CPU_FEATURES_HPP
+#ifndef OMM_CPU_FEATURES_H
+#define OMM_CPU_FEATURES_H
 
 #include <cstddef>
 #include <cstdint>
@@ -305,4 +305,4 @@ inline CPUInfo get_cpu_info() {
 
 } // namespace omm::detail
 
-#endif // OMM_CPU_FEATURES_HPP
+#endif // OMM_CPU_FEATURES_H

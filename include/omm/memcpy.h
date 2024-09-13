@@ -1,17 +1,17 @@
-#ifndef OMM_MEMCPY_HPP
-#define OMM_MEMCPY_HPP
+#ifndef OMM_MEMCPY_H
+#define OMM_MEMCPY_H
 
 #include <cstddef>
-#include <type_traits>
-#include <memory>
 #include <cstring>
 #include <functional>
+#include <memory>
+#include <type_traits>
 
 #include "omm/detail/cpu_features.h"
 
 // Include specialized implementations
 #ifdef __AVX512F__
-#include "memcpy_avx512.hpp"
+#include "memcpy_avx512.h"
 #endif
 
 #ifdef __AVX2__
@@ -170,4 +170,4 @@ inline std::function<void(void*, const void*, std::size_t)> get_memcpy_function(
 
 } // namespace omm
 
-#endif // OMM_MEMCPY_HPP
+#endif // OMM_MEMCPY_H
