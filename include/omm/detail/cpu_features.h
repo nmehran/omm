@@ -1,17 +1,20 @@
-#ifndef OMM_CPU_FEATURES_H
-#define OMM_CPU_FEATURES_H
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
 #include <array>
 #include <vector>
 #include <iostream>
+#include <algorithm>
 #include <x86intrin.h>
 
 #if defined(_MSC_VER)
 #include <intrin.h>
 #elif defined(__GNUC__) || defined(__clang__)
 #include <cpuid.h>
+#include <fstream>
+#include <sstream>
+
 #else
 #error "Unsupported compiler"
 #endif
@@ -24,7 +27,6 @@ namespace omm::detail {
 struct CacheInfo {
     std::uint32_t size;
     std::uint32_t line_size;
-    std::uint32_t associativity;
     std::uint32_t type;
 };
 
@@ -49,72 +51,102 @@ constexpr std::uint32_t DEFAULT_CACHE_LINE_SIZE = 64;
 inline std::array<std::uint32_t, NUM_CACHE_SIZES> G_CACHE_SIZES = {0};
 
 // Convenience macros for accessing cache sizes
-#define G_L1_CACHE_SIZE (G_CACHE_SIZES[L1_CACHE])
-#define G_L2_CACHE_SIZE (G_CACHE_SIZES[L2_CACHE])
-#define G_L3_CACHE_SIZE (G_CACHE_SIZES[L3_CACHE])
-#define G_CACHE_LINE_SIZE (G_CACHE_SIZES[CACHE_LINE])
+#define G_L1_CACHE_SIZE (omm::detail::G_CACHE_SIZES[omm::detail::L1_CACHE])
+#define G_L2_CACHE_SIZE (omm::detail::G_CACHE_SIZES[omm::detail::L2_CACHE])
+#define G_L3_CACHE_SIZE (omm::detail::G_CACHE_SIZES[omm::detail::L3_CACHE])
+#define G_CACHE_LINE_SIZE (omm::detail::G_CACHE_SIZES[omm::detail::CACHE_LINE])
 
 /**
- * @brief Detects cache sizes at runtime using CPUID.
+ * @brief Detects cache sizes at runtime using `lscpu` command.
  * @return Vector of CacheInfo for all detected cache levels.
  */
 std::vector<CacheInfo> detect_cache_sizes() {
-    std::vector<CacheInfo> cache_info;
+    std::vector<CacheInfo> cache_info(4);  // Cache info for L1d, L1i, L2, L3
 
-    #if defined(_MSC_VER)
-    int cpu_info[4];
-    #elif defined(__GNUC__) || defined(__clang__)
-    unsigned int eax, ebx, ecx, edx;
-    #endif
+    auto parse_size = [](const std::string& str) -> std::uint32_t {
+        std::istringstream iss(str);
+        float value;
+        std::string unit;
+        if (!(iss >> value >> unit)) return 0;
+        std::transform(unit.begin(), unit.end(), unit.begin(), ::tolower);
+        if (unit == "kib" || unit == "kb" || unit == "k") return static_cast<std::uint32_t>(value * 1024);
+        if (unit == "mib" || unit == "mb" || unit == "m") return static_cast<std::uint32_t>(value * 1024 * 1024);
+        return static_cast<std::uint32_t>(value);
+    };
 
-    // Check max CPUID leaf
-    #if defined(_MSC_VER)
-    __cpuid(cpu_info, 0);
-    int max_leaf = cpu_info[0];
-    #elif defined(__GNUC__) || defined(__clang__)
-    __get_cpuid(0, &eax, &ebx, &ecx, &edx);
-    unsigned int max_leaf = eax;
-    #endif
+#ifdef _WIN32
+    // Windows implementation
+    SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX* buffer = nullptr;
+    DWORD bufferSize = 0;
+    GetLogicalProcessorInformationEx(RelationCache, nullptr, &bufferSize);
+    buffer = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)malloc(bufferSize);
+    GetLogicalProcessorInformationEx(RelationCache, buffer, &bufferSize);
 
-//    std::cout << "Max CPUID leaf: " << max_leaf << std::endl; // DEBUG
+    SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX* ptr = buffer;
+    for (DWORD i = 0; i < bufferSize; i += ptr->Size, ptr = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)((char*)ptr + ptr->Size)) {
+        if (ptr->Relationship == RelationCache) {
+            CACHE_RELATIONSHIP* cache = &ptr->Cache;
+            if (cache->Level <= 3) {
+                cache_info[cache->Level - 1].size = cache->CacheSize;
+                cache_info[cache->Level - 1].line_size = cache->LineSize;
+                cache_info[cache->Level - 1].type = cache->Level;
+            }
+        }
+    }
+    free(buffer);
 
-    // Detect cache sizes using CPUID
-    #if defined(_MSC_VER)
-    __cpuid(cpu_info, 0x80000005);
-    std::uint32_t l1d_size = (cpu_info[2] >> 24) * 1024;
-    std::uint32_t l1i_size = (cpu_info[3] >> 24) * 1024;
+#elif defined(__APPLE__)
+    // MacOS implementation
+    std::array<std::string, 4> cache_names = {"l1dcachesize", "l1icachesize", "l2cachesize", "l3cachesize"};
+    std::array<std::string, 4> line_size_names = {"l1dcachelinesize", "l1icachelinesize", "l2cachelinesize", "l3cachelinesize"};
 
-    __cpuid(cpu_info, 0x80000006);
-    std::uint32_t l2_size = (cpu_info[2] >> 16) * 1024;
-    std::uint32_t l3_size = ((cpu_info[3] >> 18) & 0x3FFF) * 512 * 1024;
-    #elif defined(__GNUC__) || defined(__clang__)
-    __get_cpuid(0x80000005, &eax, &ebx, &ecx, &edx);
-    std::uint32_t l1d_size = (ecx >> 24) * 1024;
-    std::uint32_t l1i_size = (edx >> 24) * 1024;
+    for (size_t i = 0; i < cache_names.size(); ++i) {
+        uint64_t size = 0;
+        size_t size_len = sizeof(size);
+        if (sysctlbyname(cache_names[i].c_str(), &size, &size_len, nullptr, 0) == 0) {
+            cache_info[i].size = static_cast<std::uint32_t>(size);
+        }
 
-    __get_cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
-    std::uint32_t l2_size = (ecx >> 16) * 1024;
-    std::uint32_t l3_size = ((edx >> 18) & 0x3FFF) * 512 * 1024;
-    #endif
+        uint64_t line_size = 0;
+        size_t line_size_len = sizeof(line_size);
+        if (sysctlbyname(line_size_names[i].c_str(), &line_size, &line_size_len, nullptr, 0) == 0) {
+            cache_info[i].line_size = static_cast<std::uint32_t>(line_size);
+        }
 
-    // Use fallback values if detection fails
-    l1d_size = (l1d_size > 0) ? l1d_size : DEFAULT_L1_CACHE_SIZE;
-    l2_size = (l2_size > 0) ? l2_size : DEFAULT_L2_CACHE_SIZE;
-    l3_size = (l3_size > 0) ? l3_size : DEFAULT_L3_CACHE_SIZE;
+        cache_info[i].type = i + 1;
+    }
 
-    // Adjust L3 cache size (divide by 2 as it's reported as total across all cores)
-    l3_size /= 2;
+#else
+    // Linux implementation
+    std::array<std::string, 4> cache_names = {"L1d", "L1i", "L2", "L3"};
 
-//    std::cout << "Detected cache sizes: "
-//              << "L1D: " << l1d_size
-//              << ", L1I: " << l1i_size
-//              << ", L2: " << l2_size
-//              << ", L3: " << l3_size << " bytes" << std::endl; // DEBUG
+    FILE* pipe = popen("lscpu", "r");
+    if (pipe) {
+        char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            std::string line(buffer);
+            for (size_t i = 0; i < cache_names.size(); ++i) {
+                if (line.find(cache_names[i] + " cache:") == 0) {
+                    cache_info[i].size = parse_size(line.substr(line.find(':') + 2));
+                }
+                if (line.find(cache_names[i] + " cache line size:") == 0) {
+                    cache_info[i].line_size = parse_size(line.substr(line.find(':') + 2));
+                }
+            }
+        }
+        pclose(pipe);
+    }
+#endif
 
-    cache_info.push_back({l1d_size, DEFAULT_CACHE_LINE_SIZE, 0, 1});
-    cache_info.push_back({l1i_size, DEFAULT_CACHE_LINE_SIZE, 0, 2});
-    cache_info.push_back({l2_size, DEFAULT_CACHE_LINE_SIZE, 0, 3});
-    cache_info.push_back({l3_size, DEFAULT_CACHE_LINE_SIZE, 0, 3});
+    // Set default values if sizes are not detected
+    for (size_t i = 0; i < cache_info.size(); ++i) {
+        if (cache_info[i].size == 0) cache_info[i].size = DEFAULT_L1_CACHE_SIZE;
+        if (cache_info[i].line_size == 0) cache_info[i].line_size = DEFAULT_CACHE_LINE_SIZE;
+        if (cache_info[i].type == 0) cache_info[i].type = i + 1;
+
+//         std::cout << "Cache " << i+1 << ": " << cache_info[i].size << " bytes, Line Size: "
+//                   << cache_info[i].line_size << " bytes" << std::endl; // DEBUG
+    }
 
     return cache_info;
 }
@@ -124,21 +156,21 @@ std::vector<CacheInfo> detect_cache_sizes() {
  */
 inline void initialize_cache_sizes() {
     auto cache_info = detect_cache_sizes();
+
     for (const auto& cache : cache_info) {
         switch (cache.type) {
-            case 1: // Data cache
+            case 1: // L1 Data cache
                 G_L1_CACHE_SIZE = cache.size;
                 G_CACHE_LINE_SIZE = cache.line_size;
                 break;
-            case 2: // Instruction cache
+            case 2: // L1 Instruction cache
                 // We don't store instruction cache size separately
                 break;
-            case 3: // Unified cache
-                if (G_L2_CACHE_SIZE == 0) {
-                    G_L2_CACHE_SIZE = cache.size;
-                } else if (G_L3_CACHE_SIZE == 0) {
-                    G_L3_CACHE_SIZE = cache.size;
-                }
+            case 3: // L2 cache
+                G_L2_CACHE_SIZE = cache.size;
+                break;
+            case 4: // L3 cache
+                G_L3_CACHE_SIZE = cache.size;
                 break;
         }
     }
@@ -148,12 +180,6 @@ inline void initialize_cache_sizes() {
     G_L2_CACHE_SIZE = G_L2_CACHE_SIZE > 0 ? G_L2_CACHE_SIZE : DEFAULT_L2_CACHE_SIZE;
     G_L3_CACHE_SIZE = G_L3_CACHE_SIZE > 0 ? G_L3_CACHE_SIZE : DEFAULT_L3_CACHE_SIZE;
     G_CACHE_LINE_SIZE = G_CACHE_LINE_SIZE > 0 ? G_CACHE_LINE_SIZE : DEFAULT_CACHE_LINE_SIZE;
-
-//    std::cout << "Initialized cache sizes: "
-//              << "L1: " << G_L1_CACHE_SIZE
-//              << ", L2: " << G_L2_CACHE_SIZE
-//              << ", L3: " << G_L3_CACHE_SIZE
-//              << ", Line: " << G_CACHE_LINE_SIZE << " bytes" << std::endl; // DEBUG
 }
 
 /**
@@ -304,5 +330,3 @@ inline CPUInfo get_cpu_info() {
 }
 
 } // namespace omm::detail
-
-#endif // OMM_CPU_FEATURES_H
