@@ -5,7 +5,7 @@
 #include <array>
 #include <algorithm>
 #include <iostream>
-#include "omm/memcpy/memcpy.hpp"
+#include "omm/memcpy.h"
 
 using MemcpyFunc = void (*)(void*, const void*, std::size_t);
 

@@ -49,7 +49,7 @@ include(FetchContent)
 # === Main Library ===
 
 # Auto-detect library headers
-file(GLOB_RECURSE LIBRARY_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/omm/*.hpp")
+file(GLOB_RECURSE LIBRARY_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/omm/*.h")
 
 # Create and configure the library target as INTERFACE
 add_library(omm INTERFACE)

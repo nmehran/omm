@@ -16,8 +16,8 @@
 #include <sys/mman.h>
 #endif
 
-namespace omm {
-namespace benchmark {
+
+namespace omm::benchmark {
 
 /**
  * @brief Gets a color-coded benchmark name and cycles through colors.
@@ -151,7 +151,7 @@ void PinToCore(int core_id) {
 //    // Not Implemented Yet
 //}
 
-} // namespace benchmark
-} // namespace omm
+} // namespace omm::benchmark
+
 
 #endif // OMM_BENCHMARK_UTILS_HPP

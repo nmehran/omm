@@ -1,7 +1,6 @@
 #include <benchmark/benchmark.h>
-#include <cstring>
-#include "omm/memcpy/memcpy.hpp"
-#include "benchmark_utils.hpp"
+#include "benchmark_utils.h"
+#include "omm/memcpy.h"
 
 // === Constants ===
 
@@ -66,11 +65,18 @@ BENCHMARK_DEFINE_F(MemcpyBenchmark, AVX2_Memcpy)(benchmark::State& state) {
 
 // === Benchmark Configuration ===
 
+std::vector<int64_t> BenchmarkRange() {
+    std::vector<int64_t> range;
+    for (int64_t size = MIN_ALLOCATION; size <= MAX_ALLOCATION; size *= 2) {
+        range.push_back(size);
+    }
+    return range;
+}
+
 #define CONFIGURE_BENCHMARK(func_name) \
     BENCHMARK_REGISTER_F(MemcpyBenchmark, func_name) \
         ->Name(omm::benchmark::GetColoredBenchmarkName(#func_name)) \
-        ->Range(MIN_ALLOCATION, MAX_ALLOCATION) \
-        ->RangeMultiplier(2) \
+        ->ArgsProduct({BenchmarkRange()}) \
         ->Repetitions(REPETITIONS) \
         ->MinTime(20.0) \
         ->Unit(benchmark::kMillisecond) \

@@ -7,7 +7,7 @@
 #include <cstring>
 #include <functional>
 
-#include "omm/detail/cpu_features.hpp"
+#include "omm/detail/cpu_features.h"
 
 // Include specialized implementations
 #ifdef __AVX512F__
@@ -15,7 +15,7 @@
 #endif
 
 #ifdef __AVX2__
-#include "memcpy_avx2.hpp"
+#include "omm/detail/memcpy/memcpy_avx2.h"
 #endif
 
 namespace omm {

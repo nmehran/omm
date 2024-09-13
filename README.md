@@ -38,15 +38,15 @@ Note: By default, tests and benchmarks are not built. Use the CMake options `-DO
 Here's a basic example of using OMM's optimized `memcpy`:
 
 ```cpp
-#include <omm/memcpy/memcpy.hpp>
+#include <omm/memcpy.h>
 
 int main() {
-    const size_t size = 1024 * 1024 * 1024; // 1 GB
-    std::unique_ptr<char[]> src = std::make_unique<char[]>(size);
-    std::unique_ptr<char[]> dest = std::make_unique<char[]>(size);
+    const size_t size = 1024 * 1024 * 1024; // 1GB
+    std::vector<char> src(size, 'A');
+    std::vector<char> dest(size);
 
     // Use OMM's optimized memcpy
-    omm::memcpy(dest.get(), src.get(), size);
+    omm::memcpy(dest.data(), src.data(), size);
 
     return 0;
 }
@@ -76,11 +76,9 @@ ctest
 
 ## Contributing
 
-Before you start coding, we recommend discussing your ideas first as part of an issue.
+Performance optimizations, bug fixes, and improvements to maintainability and flexibility are particularly valued.
 
-We particularly value performance optimizations, bug fixes, and well-documented improvements to maintainability and flexibility.
-
-Pull requests that don't follow these guidelines may need revision before they can be accepted.
+Before you start coding, please consider first discussing your ideas as part of an issue.
 
 ## License
 
@@ -88,7 +86,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ---
 
-OMM is an experimental library motivated by the significant gap between current performance and the theoretical maximum of memory throughput.
+OMM is an experimental library striving to maximize memory throughput.
 
 ## TODO
 
