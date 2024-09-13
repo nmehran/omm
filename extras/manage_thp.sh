@@ -37,20 +37,41 @@
 
 # Function to save current THP settings
 save_thp_settings() {
-    echo "Saving current THP settings..."
-    echo $(cat /sys/kernel/mm/transparent_hugepage/enabled) > thp_enabled_backup
-    echo $(cat /sys/kernel/mm/transparent_hugepage/defrag) > thp_defrag_backup
-    echo $(cat /proc/sys/vm/nr_hugepages) > hugepages_backup
-    echo "Current settings saved to backup files"
+    if [ -f "$ORIGINAL_SETTINGS_FLAG" ]; then
+        echo "Original settings have already been saved. To avoid overwriting, this save operation will be skipped."
+        echo "To view current settings, use the 'view' command."
+        return
+    fi
+
+    echo "Saving current THP settings as original settings..."
+    mkdir -p "$BACKUP_DIR"
+    cat /sys/kernel/mm/transparent_hugepage/enabled > "$BACKUP_DIR/thp_enabled_backup"
+    cat /sys/kernel/mm/transparent_hugepage/defrag > "$BACKUP_DIR/thp_defrag_backup"
+    cat /proc/sys/vm/nr_hugepages > "$BACKUP_DIR/hugepages_backup"
+    touch "$ORIGINAL_SETTINGS_FLAG"
+    echo "Original settings saved to $BACKUP_DIR"
 }
 
 # Function to restore THP settings
 restore_thp_settings() {
-    echo "Restoring THP settings..."
-    if [ -f thp_enabled_backup ] && [ -f thp_defrag_backup ] && [ -f hugepages_backup ]; then
-        local enabled=$(cat thp_enabled_backup)
-        local defrag=$(cat thp_defrag_backup)
-        local pages=$(cat hugepages_backup)
+    if [ ! -f "$ORIGINAL_SETTINGS_FLAG" ]; then
+        echo "No original settings found to restore. Please save settings first."
+        return
+    fi
+
+    echo "Restoring original THP settings..."
+    if [ -f "$BACKUP_DIR/thp_enabled_backup" ] && [ -f "$BACKUP_DIR/thp_defrag_backup" ] && [ -f "$BACKUP_DIR/hugepages_backup" ]; then
+        local enabled=$(cat "$BACKUP_DIR/thp_enabled_backup")
+        local defrag=$(cat "$BACKUP_DIR/thp_defrag_backup")
+        local pages=$(cat "$BACKUP_DIR/hugepages_backup")
+
+        echo "Summary of original settings to be restored:"
+        echo "-----------------------------------"
+        echo "THP Enabled: $enabled"
+        echo "THP Defrag: $defrag"
+        echo "Number of Huge Pages: $pages"
+        echo "-----------------------------------"
+        echo "Applying original settings..."
 
         set_and_verify_thp_settings "$enabled" "$defrag" "$pages"
     else
@@ -102,6 +123,12 @@ set_and_verify_thp_settings() {
     local thp_setting=$1
     local defrag_setting=$2
     local num_pages=$3
+
+    # Check if original settings have been saved, if not, create them
+    if [ ! -f "$ORIGINAL_SETTINGS_FLAG" ]; then
+        echo "Original settings backup not found. Creating a backup of current settings as original..."
+        save_thp_settings
+    fi
 
     # Set THP enabled
     if [[ "$thp_setting" =~ ^(always|madvise|never)$ ]]; then
