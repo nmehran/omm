@@ -41,7 +41,7 @@ namespace omm {
 __attribute__((nonnull(1, 2)))
 inline void* memcpy_avx2(void* __restrict dest, const void* __restrict src, std::size_t size) noexcept {
     // Fast path for small sizes: leverage compiler's built-in optimization
-    if (size <= G_L2_CACHE_SIZE) {
+    if (size < G_L3_CACHE_SIZE) {
         return __builtin_memcpy(dest, src, size);
     }
 

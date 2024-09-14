@@ -11,8 +11,8 @@ constexpr size_t GB = 1024 * MB;
 constexpr size_t MIN_ALLOCATION = 1 * MB;
 constexpr size_t MAX_ALLOCATION = 8 * GB;
 
-constexpr uint16_t REPETITIONS = 5;
-constexpr uint16_t CPU_NUM = 0;
+constexpr uint16_t REPETITIONS = 3;
+constexpr int CPU_NUM = 0;
 
 // === Benchmark Fixture ===
 
@@ -78,7 +78,7 @@ std::vector<int64_t> BenchmarkRange() {
         ->Name(omm::benchmark::GetColoredBenchmarkName(#func_name)) \
         ->ArgsProduct({BenchmarkRange()}) \
         ->Repetitions(REPETITIONS) \
-        ->MinTime(20.0) \
+        ->MinTime(60.0) \
         ->Unit(benchmark::kMillisecond) \
         ->UseRealTime() \
         ->MeasureProcessCPUTime() \
