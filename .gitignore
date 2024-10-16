@@ -35,7 +35,6 @@ cmake-build-*
 
 # Cython generated files
 cython
-*.c
 
 # Logs and databases
 Logs
