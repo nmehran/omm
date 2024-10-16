@@ -24,11 +24,10 @@ target_compile_features(omm INTERFACE cxx_std_20)
 target_compile_options(omm INTERFACE
         $<$<CONFIG:Release>:
         -O3                           # Optimize for speed
-        -march=native                 # Use native architecture
-        -mtune=native                 # Tune for native architecture
+        -mtune=native                 # Tune for native architecture, but don't limit instruction set
         -flto                         # Enable link-time optimization
         -funroll-loops                # Unroll loops for performance
-        -fomit-frame-pointer           # Omit frame pointer for optimized code
+        -fomit-frame-pointer          # Omit frame pointer for optimized code
         -fipa-pta                     # Inter-procedural pointer aliasing analysis
         -fno-rtti                     # Disable runtime type information
         -ffast-math                   # Enable fast math optimizations
@@ -37,10 +36,11 @@ target_compile_options(omm INTERFACE
         -falign-loops=64              # Align loops to 64-byte boundaries
         -pipe                         # Use pipes for communication between stages
         -fopt-info-vec                # Provide vectorization optimization info
+        -mavx2                        # Support AVX2
+        -mavx512f                     # Support AVX-512 Foundation instructions
         >
 )
 
-# SIMD Instruction Sets are handled by -march=native
 # Optionally, display AVX-512 support status
 if(AVX512_SUPPORTED)
     message(STATUS "AVX-512 is supported and will be enabled")
