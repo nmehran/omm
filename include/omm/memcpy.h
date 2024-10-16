@@ -25,7 +25,7 @@ namespace detail {
 // Function pointer type for memcpy implementations
 using MemcpyFunc = void* (*)(void*, const void*, std::size_t);
 
-// Function to determine the best memcpy implementation at runtime
+// Function to determine the best memcpy implementation, once, at runtime
 MemcpyFunc initialize_best_memcpy() {
     if (detail::cpu_supports_avx512f()) {
         DEBUG_PRINT("AVX-512F enabled at compile-time");
@@ -46,7 +46,7 @@ static const MemcpyFunc best_memcpy = initialize_best_memcpy();
 } // namespace detail
 
 // Inline memcpy function with a fast path for small sizes
-__attribute__((always_inline, nonnull(1, 2)))
+__attribute__((always_inline, hot, artificial, returns_nonnull, nonnull(1, 2)))
 inline void* memcpy(void* __restrict dest, const void* __restrict src, std::size_t n) noexcept {
     // Use builtin_memcpy for sizes up to the L3 cache size for performance
     if (__builtin_expect(n < G_L3_CACHE_SIZE, 1)) {
