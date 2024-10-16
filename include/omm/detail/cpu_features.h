@@ -19,6 +19,15 @@
 #error "Unsupported compiler"
 #endif
 
+// Define DEBUG macro. Uncomment the next line to enable debug output.
+// #define DEBUG
+
+#ifdef DEBUG
+#define DEBUG_PRINT(x) std::cout << "[DEBUG] " << __func__ << ": " << x << std::endl
+#else
+#define DEBUG_PRINT(x)
+#endif
+
 namespace omm::detail {
 
 /**
@@ -28,11 +37,15 @@ namespace omm::detail {
 inline bool cpu_supports_avx512f() {
     #if defined(__AVX512F__)
         #if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
-            return __builtin_cpu_supports("avx512f");
+            bool supported = __builtin_cpu_supports("avx512f");
+            DEBUG_PRINT("AVX-512F compile-time check passed, runtime check: " << (supported ? "supported" : "not supported"));
+            return supported;
         #else
+            DEBUG_PRINT("AVX-512F compile-time check passed, but no runtime check available");
             return false;  // Safe fallback if runtime check is unavailable
         #endif
     #else
+        DEBUG_PRINT("AVX-512F not enabled at compile-time");
         return false;  // AVX-512F not enabled at compile-time
     #endif
 }
@@ -44,11 +57,15 @@ inline bool cpu_supports_avx512f() {
 inline bool cpu_supports_avx2() {
     #if defined(__AVX2__)
         #if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
-            return __builtin_cpu_supports("avx2");
+            bool supported = __builtin_cpu_supports("avx2");
+            DEBUG_PRINT("AVX2 compile-time check passed, runtime check: " << (supported ? "supported" : "not supported"));
+            return supported;
         #else
+            DEBUG_PRINT("AVX2 compile-time check passed, but no runtime check available");
             return false;  // Safe fallback if runtime check is unavailable
         #endif
     #else
+        DEBUG_PRINT("AVX2 not enabled at compile-time");
         return false;  // AVX2 not enabled at compile-time
     #endif
 }

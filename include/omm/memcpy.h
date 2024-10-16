@@ -9,15 +9,6 @@
 #include "omm/detail/memcpy/memcpy_avx512.h"
 #include "omm/detail/memcpy/memcpy_avx2.h"
 
-// Define DEBUG macro. Uncomment the next line to enable debug output.
-// #define DEBUG
-
-#ifdef DEBUG
-#define DEBUG_PRINT(x) std::cout << "[DEBUG] " << __func__ << ": " << x << std::endl
-#else
-#define DEBUG_PRINT(x)
-#endif
-
 namespace omm {
 
 namespace detail {
@@ -28,13 +19,10 @@ using MemcpyFunc = void* (*)(void*, const void*, std::size_t);
 // Function to determine the best memcpy implementation, once, at runtime
 MemcpyFunc initialize_best_memcpy() {
     if (detail::cpu_supports_avx512f()) {
-        DEBUG_PRINT("AVX-512F enabled at compile-time");
         return memcpy_avx512;
     } else if (detail::cpu_supports_avx2()) {
-        DEBUG_PRINT("AVX2 enabled at compile-time");
         return memcpy_avx2;
     } else {
-        DEBUG_PRINT("AVX2 not enabled at compile-time");
         return std::memcpy;
     }
 }

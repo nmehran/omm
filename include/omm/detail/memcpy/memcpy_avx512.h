@@ -30,24 +30,31 @@
 #pragma push_macro("G_CACHE_LINE_SIZE")
 #undef G_L3_CACHE_SIZE
 #undef G_CACHE_LINE_SIZE
-// Redefine macros for standalone use (auto-detected by cpu_features.h, if using full library)
-#define G_L3_CACHE_SIZE 32 * 1024 * 1024 // 32MB
-#define G_CACHE_LINE_SIZE 64
+
+// IMPORTANT: Definitions below are only for standalone mode.
+// When using the full library, these are ignored and values are auto-detected
+// by cpu_features.h instead.
+
+// L3 cache size: Typically varies between processors. Set to 32MB as a common value.
+#define G_L3_CACHE_SIZE (32 * 1024 * 1024)  // 32MB
+
+// Cache line size: Smallest data transfer unit between CPU cache and main memory. Typical for modern x86.
+#define G_CACHE_LINE_SIZE 64  // Aligning to this can improve performance by reducing cache misses
 
 #endif
 
 namespace omm {
 
+__attribute__((always_inline, hot, artificial, returns_nonnull, nonnull(1, 2)))
 inline void *memcpy_avx512(void *__restrict dest, const void *__restrict src, std::size_t size) noexcept {
     // Fast path for small sizes: leverage compiler's built-in optimization
-    if (size <= G_L3_CACHE_SIZE) {
-        __builtin_memcpy(dest, src, size);
-        return dest;
+    if (__builtin_expect(size < G_L3_CACHE_SIZE, 1)) {
+        return __builtin_memcpy(dest, src, size);
     }
 
     // AVX-512 uses 512-bit (64-byte) vectors
     static constexpr std::size_t ALIGNMENT = 64;
-    static constexpr std::size_t UNROLL_FACTOR = 8;  // Unrolling factor, keep the same or adjust based on profiling
+    static constexpr std::size_t UNROLL_FACTOR = 8;  // Unrolling factor, use default or adjust based on profiling
     static constexpr std::size_t BLOCK_SIZE = ALIGNMENT * UNROLL_FACTOR;
     // Prefetch two blocks ahead - adjust based on target hardware characteristics
     static constexpr std::size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
