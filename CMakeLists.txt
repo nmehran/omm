@@ -37,13 +37,13 @@ target_compile_options(omm INTERFACE
         -pipe                         # Use pipes for communication between stages
         -fopt-info-vec                # Provide vectorization optimization info
         -mavx2                        # Support AVX2
-        -mavx512f                     # Support AVX-512 Foundation instructions
         >
 )
 
-# Optionally, display AVX-512 support status
+# Enable AVX-512 if supported
 if(AVX512_SUPPORTED)
     message(STATUS "AVX-512 is supported and will be enabled")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f -mavx512vl")
     target_compile_definitions(omm INTERFACE AVX512_SUPPORTED)
 else()
     message(STATUS "AVX-512 is not supported and will not be enabled")

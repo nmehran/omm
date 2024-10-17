@@ -2,12 +2,16 @@
 
 #include <cstddef>
 #include <cstring>
-#include <type_traits>
 
 // Include specialized implementations of memcpy for different CPU architectures
 #include "omm/detail/cpu_features.h"
+
+#ifdef __AVX512F__
 #include "omm/detail/memcpy/memcpy_avx512.h"
+#endif
+#ifdef __AVX2__
 #include "omm/detail/memcpy/memcpy_avx2.h"
+#endif
 
 namespace omm {
 
@@ -16,15 +20,16 @@ namespace detail {
 // Function pointer type for memcpy implementations
 using MemcpyFunc = void* (*)(void*, const void*, std::size_t);
 
-// Function to determine the best memcpy implementation, once, at runtime
+// Selects the optimal memcpy implementation based on available CPU features.
+// Called once at program startup to initialize the best_memcpy function pointer.
 MemcpyFunc initialize_best_memcpy() {
-    if (detail::cpu_supports_avx512f()) {
-        return memcpy_avx512;
-    } else if (detail::cpu_supports_avx2()) {
-        return memcpy_avx2;
-    } else {
-        return std::memcpy;
-    }
+    #ifdef __AVX512F__
+    if (cpu_supports_avx512f()) return memcpy_avx512;
+    #endif
+    #ifdef __AVX2__
+    if (cpu_supports_avx2()) return memcpy_avx2;
+    #endif
+    return std::memcpy;
 }
 
 // Global variable to store the best memcpy implementation
