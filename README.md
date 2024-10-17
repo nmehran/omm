@@ -35,26 +35,61 @@ Note: By default, tests and benchmarks are not built. Use the CMake options `-DO
 
 ## Usage
 
-Here's a basic example of using OMM's optimized `memcpy`:
+Here are two basic examples of using OMM's optimized `memcpy`:
+
+#### Example 1: Using std::vector
 
 ```cpp
 #include <omm/memcpy.h>
+#include <vector>
 
 int main() {
     const size_t size = 1024 * 1024 * 1024; // 1GB
-    std::vector<char> src(size, 'A');
+    std::vector<char> src(size, 'A');  // Initialize src with some data
     std::vector<char> dest(size);
 
-    // Use OMM's optimized memcpy
-    omm::memcpy(dest.data(), src.data(), size);
+    omm::memcpy(dest.data(), src.data(), size);  // Use OMM's optimized memcpy
 
     return 0;
 }
 ```
 
+#### Example 2: Using raw pointers
+
+```cpp
+#include <omm/memcpy.h>
+#include <cstdlib>
+
+int main() {
+    const size_t size = 1024 * 1024 * 1024; // 1GB
+    char* src = static_cast<char*>(std::malloc(size));
+    char* dest = static_cast<char*>(std::malloc(size));
+
+    if (src && dest) {
+        std::memset(src, 'A', size);   // Initialize src with some data
+        omm::memcpy(dest, src, size);  // Use OMM's optimized memcpy
+
+        // Free the allocated memory
+        std::free(src);
+        std::free(dest);
+    }
+
+    return 0;
+}
+```
+
+
 ## Benchmarks
 
-OMM includes a benchmarking suite to measure the performance of its memory operations. To build and run the benchmarks:
+OMM includes a benchmarking suite to measure the performance of its memory operations. For consistent results, it's recommended to set the CPU governor to performance mode before running benchmarks.
+
+1. Set CPU governor to performance mode:
+
+```bash
+sudo ./extras/manage_cpu_scaling.sh set performance
+```
+
+2. Build and run the benchmarks:
 
 ```bash
 cd build
@@ -62,6 +97,14 @@ cmake -DOMM_BUILD_BENCHMARKS=ON ..
 make
 ./benchmarks/memcpy_benchmarks
 ```
+
+3. After benchmarking, restore previous CPU settings:
+
+```bash
+sudo ./extras/manage_cpu_scaling.sh restore
+```
+
+Note: The `manage_cpu_scaling.sh` script provides various options for CPU frequency scaling management. Run `./extras/manage_cpu_scaling.sh` without arguments to see usage instructions.
 
 ## Testing
 
