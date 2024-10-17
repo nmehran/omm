@@ -12,7 +12,7 @@ using MemcpyFunc = void *(*)(void*, const void*, std::size_t);
 class MemcpyTest : public ::testing::TestWithParam<std::pair<MemcpyFunc, const char*>> {
 protected:
     std::vector<size_t> test_sizes;
-    std::mt19937 gen;
+    std::mt19937 gen{42}; // Fixed seed for reproducibility
     std::array<size_t, 8> alignments{};
 
     void SetUp() override {

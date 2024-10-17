@@ -60,11 +60,11 @@ inline void* memcpy_avx2(void* __restrict dest, const void* __restrict src, std:
     static constexpr std::size_t PREFETCH_DISTANCE = 2 * BLOCK_SIZE;
     static constexpr std::size_t PREFETCH_COUNT = PREFETCH_DISTANCE / G_CACHE_LINE_SIZE;
 
-    auto* dest_ptr = static_cast<uint8_t* __restrict>(dest);
-    const auto* src_ptr = static_cast<const uint8_t* __restrict>(src);
+    auto* __restrict dest_ptr = static_cast<uint8_t* __restrict>(dest);
+    const auto* __restrict src_ptr = static_cast<const uint8_t* __restrict>(src);
 
     // Align destination to ALIGNMENT boundary for optimal streaming stores
-    std::size_t initial_bytes = (ALIGNMENT - (reinterpret_cast<std::uintptr_t>(dest_ptr) & ALIGNMENT - 1)) & ALIGNMENT - 1;
+    std::size_t initial_bytes = (ALIGNMENT - (reinterpret_cast<std::uintptr_t>(dest_ptr) & (ALIGNMENT - 1))) & (ALIGNMENT - 1);
     if (initial_bytes > 0) {
         __builtin_memcpy(dest_ptr, src_ptr, initial_bytes);
         dest_ptr += initial_bytes;
@@ -73,8 +73,8 @@ inline void* memcpy_avx2(void* __restrict dest, const void* __restrict src, std:
     }
 
     // Use __m256i pointers for AVX2 intrinsics
-    auto* dest_vec = reinterpret_cast<__m256i* __restrict>(dest_ptr);
-    const auto* src_vec = reinterpret_cast<const __m256i* __restrict>(src_ptr);
+    auto* __restrict dest_vec = reinterpret_cast<__m256i* __restrict>(dest_ptr);
+    const auto* __restrict src_vec = reinterpret_cast<const __m256i* __restrict>(src_ptr);
     // Compute size that's a multiple of BLOCK_SIZE for vectorized processing
     const std::size_t vector_size = size & ~(BLOCK_SIZE - 1);
 
@@ -95,7 +95,7 @@ inline void* memcpy_avx2(void* __restrict dest, const void* __restrict src, std:
     // Handle remaining bytes (< BLOCK_SIZE) with standard memcpy
     std::size_t remaining = size - vector_size;
     if (remaining > 0) {
-        __builtin_memcpy(dest_vec, src_ptr, remaining);
+        __builtin_memcpy(dest_vec, src_vec, remaining);
     }
 
     // Ensure all non-temporal (streaming) stores are visible
